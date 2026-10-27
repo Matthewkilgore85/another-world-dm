@@ -11,7 +11,7 @@ function fmt(n: number) {
   return n >= 1e9 ? n.toExponential(2) : n.toLocaleString();
 }
 
-export function Sheet({ slot, onUnlock }: { slot: SaveSlot; onUnlock: (id: string) => void }) {
+export function Sheet({ slot, busy = false, onUnlock }: { slot: SaveSlot; busy?: boolean; onUnlock: (id: string) => void }) {
   const c = slot.character;
   const next = xpToNext(c.level);
   const roots = c.skills.filter((s) => s.parentId === null || !c.skills.some((p) => p.id === s.parentId));
@@ -72,7 +72,7 @@ export function Sheet({ slot, onUnlock }: { slot: SaveSlot; onUnlock: (id: strin
             {branches.map((b) => (
               <li key={b.id}>
                 <span>{b.name} <span className="muted">from {SKILL_BY_ID[b.parentId!].name}</span></span>
-                <button className="btn small" disabled={c.skillPoints < (b.cost ?? 1)} onClick={() => onUnlock(b.id)}>
+                <button className="btn small" disabled={busy || c.skillPoints < (b.cost ?? 1)} onClick={() => onUnlock(b.id)}>
                   Unlock ({b.cost ?? 1} SP)
                 </button>
               </li>
