@@ -15,7 +15,8 @@ describe('dm proxy without a key', () => {
     const r = await fetch(`http://127.0.0.1:${PORT}/api/dm/status`, { headers: { Origin: 'http://localhost:5173' } });
     const j = await r.json();
     expect(j.configured).toBe(false);
-    expect(Object.keys(j).sort()).toEqual(['configured', 'model']);
+    expect(Object.keys(j).sort()).toEqual(['configured', 'model', 'provider']);
+    expect(j.provider).toBe(null);
     expect(r.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
   });
   it('chat returns 503', async () => {

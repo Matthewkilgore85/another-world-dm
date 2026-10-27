@@ -25,7 +25,11 @@ browser bundle.** `.env` is gitignored; only `.env.example` is committed.
 - API error mid-game? That turn falls back to the stub and a one-line ⚠ notice appears in chat (once per outage).
 - Model: `grok-4.3` with `reasoning_effort: none` (fast/cheap chat) by default. Override with `XAI_MODEL` /
   `XAI_REASONING_EFFORT` in `.env` (e.g. `XAI_MODEL=grok-4.7`). `DM_PROXY_PORT` changes the proxy port.
-- Proxy endpoints: `GET /api/dm/status` → `{ configured, model }`; `POST /api/dm/chat` `{ messages, json? }` → `{ content }`.
+- **Groq Cloud alternative:** set `GROQ_API_KEY=gsk_...` in `.env` (free key at console.groq.com). Default model
+  `llama-3.1-8b-instant`; override with `GROQ_MODEL=llama-3.3-70b-versatile`. Pick explicitly with
+  `DM_PROVIDER=xai|groq`; otherwise xAI is used if `XAI_API_KEY` is set, else Groq if `GROQ_API_KEY` is set, else the stub.
+  The in-game badge shows `DM: AI (xAI)`, `DM: AI (Groq)` or `DM: Stub`.
+- Proxy endpoints: `GET /api/dm/status` → `{ configured, provider, model }`; `POST /api/dm/chat` `{ messages, json? }` → `{ content }`.
 
 Other scripts: `npm run build` (type-check + production build), `npm run preview` (proxy + vite preview),
 `npm run lint`, `npm test` (unit/smoke tests, no network), `npm run test:live` (one real xAI call: spider-premise

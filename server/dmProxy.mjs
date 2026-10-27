@@ -1,7 +1,7 @@
-// Tiny local proxy between the browser DM and xAI. The API key lives ONLY here (process.env / .env),
+// Tiny local proxy between the browser DM and an OpenAI-compatible LLM (xAI or Groq Cloud). The API key lives ONLY here (process.env / .env),
 // never in the Vite bundle. Zero dependencies: node:http + global fetch (Node 20+).
 //
-//   GET  /api/dm/status -> { configured, model }      (never reveals the key)
+//   GET  /api/dm/status -> { configured, provider, model }      (never reveals the key)
 //   POST /api/dm/chat   -> { content } | { error }    body: { messages, json?, temperature?, max_tokens? }
 import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
@@ -27,14 +27,39 @@ export function loadDotEnv(file = resolve(ROOT, '.env')) {
 loadDotEnv();
 
 const PORT = Number(process.env.DM_PROXY_PORT || 5174);
-const API_URL = process.env.XAI_BASE_URL || 'https://api.x.ai/v1/chat/completions';
-const MODEL = process.env.XAI_MODEL || 'grok-4.3';
-// grok-4.3 supports reasoning_effort none|low|medium|high. "none" = fast + cheap. Set XAI_REASONING_EFFORT= (empty) to omit.
-const EFFORT = process.env.XAI_REASONING_EFFORT ?? 'none';
-const TIMEOUT_MS = Number(process.env.XAI_TIMEOUT_MS || 45000);
 const MAX_BODY = 256 * 1024;
 
-const key = () => (process.env.XAI_API_KEY || '').trim();
+const env = (k) => (process.env[k] || '').trim();
+const PROVIDERS = {
+  xai: {
+    name: 'xAI',
+    keyVar: 'XAI_API_KEY',
+    url: () => env('XAI_BASE_URL') || 'https://api.x.ai/v1/chat/completions',
+    model: () => env('XAI_MODEL') || 'grok-4.3',
+    // grok-4.3 supports reasoning_effort none|low|medium|high. Set XAI_REASONING_EFFORT= (empty) to omit.
+    effort: () => process.env.XAI_REASONING_EFFORT ?? 'none',
+    timeout: () => Number(process.env.XAI_TIMEOUT_MS || 45000),
+  },
+  groq: {
+    name: 'Groq',
+    keyVar: 'GROQ_API_KEY',
+    url: () => (env('GROQ_BASE_URL') || 'https://api.groq.com/openai/v1').replace(/\/+$/, '') + '/chat/completions',
+    model: () => env('GROQ_MODEL') || 'llama-3.1-8b-instant',
+    effort: () => '',
+    timeout: () => Number(process.env.GROQ_TIMEOUT_MS || 45000),
+  },
+};
+
+/** DM_PROVIDER=xai|groq wins; otherwise groq if only GROQ_API_KEY is set, else xai if XAI_API_KEY, else null. */
+export function pickProvider() {
+  const explicit = env('DM_PROVIDER').toLowerCase();
+  if (PROVIDERS[explicit]) return explicit;
+  if (env('XAI_API_KEY')) return 'xai';
+  if (env('GROQ_API_KEY')) return 'groq';
+  return null;
+}
+const prov = () => PROVIDERS[pickProvider()] || null;
+const key = () => { const p = prov(); return p ? env(p.keyVar) : ''; };
 
 function cors(req, res) {
   const origin = req.headers.origin;
@@ -75,12 +100,12 @@ function cleanMessages(messages) {
   return out;
 }
 
-async function callXai(payload) {
-  const r = await fetch(API_URL, {
+async function callUpstream(p, payload) {
+  const r = await fetch(p.url(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key()}` },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(p.timeout()),
   });
   const text = await r.text();
   let data = null;
@@ -89,6 +114,9 @@ async function callXai(payload) {
 }
 
 async function chat(body) {
+  const p = prov();
+  const MODEL = p.model();
+  const EFFORT = p.effort();
   const messages = cleanMessages(body.messages);
   if (!messages) return [400, { error: 'messages must be [{role, content}] (1–40 items)' }];
   const payload = {
@@ -105,19 +133,19 @@ async function chat(body) {
     payload.response_format = { type: 'json_object' };
   }
 
-  let r = await callXai(payload);
+  let r = await callUpstream(p, payload);
   // Some model/param combos reject response_format or reasoning_effort: retry once without them.
   if (!r.ok && r.status === 400 && (payload.response_format || payload.reasoning_effort)) {
     delete payload.response_format;
     delete payload.reasoning_effort;
-    r = await callXai(payload);
+    r = await callUpstream(p, payload);
   }
   if (!r.ok) {
     const msg = r.data?.error?.message || r.data?.error || r.data?.message || r.text.slice(0, 200) || `HTTP ${r.status}`;
-    return [502, { error: `xAI ${r.status}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`.slice(0, 300) }];
+    return [502, { error: `${p.name} ${r.status}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`.slice(0, 300) }];
   }
   const content = r.data?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || !content.trim()) return [502, { error: 'xAI returned no content' }];
+  if (typeof content !== 'string' || !content.trim()) return [502, { error: `${p.name} returned no content` }];
   return [200, { content, model: r.data?.model || MODEL }];
 }
 
@@ -127,10 +155,12 @@ export const server = createServer(async (req, res) => {
   try {
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
     if (req.method === 'GET' && url.pathname === '/api/dm/status') {
-      return send(res, 200, { configured: key().length > 0, model: MODEL });
+      const id = pickProvider();
+      const ok = !!id && key().length > 0;
+      return send(res, 200, { configured: ok, provider: ok ? id : null, model: ok ? PROVIDERS[id].model() : null });
     }
     if (req.method === 'POST' && url.pathname === '/api/dm/chat') {
-      if (!key()) return send(res, 503, { error: 'XAI_API_KEY not set on the proxy' });
+      if (!key()) return send(res, 503, { error: `${prov()?.keyVar || 'XAI_API_KEY or GROQ_API_KEY'} not set on the proxy` });
       let body;
       try { body = JSON.parse(await readBody(req)); } catch { return send(res, 400, { error: 'Invalid JSON body' }); }
       const [status, out] = await chat(body);
@@ -138,13 +168,13 @@ export const server = createServer(async (req, res) => {
     }
     send(res, 404, { error: 'Not found' });
   } catch (e) {
-    const msg = e?.name === 'TimeoutError' ? 'xAI request timed out' : String(e?.message || e);
+    const msg = e?.name === 'TimeoutError' ? `${prov()?.name || 'LLM'} request timed out` : String(e?.message || e);
     send(res, 502, { error: msg.slice(0, 300) });
   }
 });
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   server.listen(PORT, '127.0.0.1', () => {
-    console.log(`[dm-proxy] http://127.0.0.1:${PORT}  model=${MODEL}  key=${key() ? 'configured' : 'MISSING (stub DM will be used)'}`);
+    console.log(`[dm-proxy] http://127.0.0.1:${PORT}  provider=${pickProvider() ?? 'none'}  model=${prov()?.model() ?? '-'}  key=${key() ? 'configured' : 'MISSING (stub DM will be used)'}`);
   });
 }
