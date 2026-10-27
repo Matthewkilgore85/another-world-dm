@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { GameScreen } from './components/GameScreen';
 import { NewGame } from './components/NewGame';
 import { TitleScreen } from './components/TitleScreen';
@@ -34,18 +34,23 @@ export default function App() {
     }
   };
 
+  // Bumped on pause/navigation so a late AI response can't pull the player back into the game.
+  const turnGen = useRef(0);
+
   const send = async (text: string) => {
-    if (screen.kind !== 'game') return;
+    if (screen.kind !== 'game' || busy) return;
+    const gen = ++turnGen.current;
     setBusy(true);
     try {
-      persist(await playTurn(screen.slot, text, dm));
+      const next = await playTurn(screen.slot, text, dm);
+      if (gen !== turnGen.current) { saveSlot(next); refresh(); return; } // paused meanwhile: save, don't navigate
     } finally {
       setBusy(false);
     }
   };
 
   const unlock = (skillId: string) => {
-    if (screen.kind !== 'game') return;
+    if (screen.kind !== 'game' || busy) return; // avoid being overwritten by an in-flight turn
     const s = structuredClone(screen.slot);
     const events = unlockBranch(s, skillId);
     if (!events.length) return;
@@ -56,6 +61,8 @@ export default function App() {
 
   // Pause = autosave + return to save select. Switching games = pause, then pick another slot.
   const pause = () => {
+    if (busy) return; // wait for the DM so the in-flight turn isn't lost or duplicated
+    turnGen.current++;
     if (screen.kind === 'game') saveSlot({ ...screen.slot, updatedAt: Date.now() });
     refresh();
     setScreen({ kind: 'title' });

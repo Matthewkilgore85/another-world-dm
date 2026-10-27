@@ -27,7 +27,7 @@ browser bundle.** `.env` is gitignored; only `.env.example` is committed.
   `XAI_REASONING_EFFORT` in `.env` (e.g. `XAI_MODEL=grok-4.7`). `DM_PROXY_PORT` changes the proxy port.
 - **Groq Cloud alternative:** set `GROQ_API_KEY=gsk_...` in `.env` (free key at console.groq.com). Default model
   `llama-3.1-8b-instant`; override with `GROQ_MODEL=llama-3.3-70b-versatile`. Pick explicitly with
-  `DM_PROVIDER=xai|groq`; otherwise xAI is used if `XAI_API_KEY` is set, else Groq if `GROQ_API_KEY` is set, else the stub.
+  `DM_PROVIDER=xai|groq`; otherwise Groq (free tier) is used if `GROQ_API_KEY` is set — even when `XAI_API_KEY` is also set (a warning is logged) — else xAI if only `XAI_API_KEY` is set, else the stub. There is no automatic fallback to paid xAI.
   The in-game badge shows `DM: AI (xAI)`, `DM: AI (Groq)` or `DM: Stub`.
 - Proxy endpoints: `GET /api/dm/status` → `{ configured, provider, model }`; `POST /api/dm/chat` `{ messages, json? }` → `{ content }`.
 

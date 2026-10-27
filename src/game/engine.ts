@@ -16,7 +16,18 @@ function msg(from: ChatMessage['from'], text: string, extra: Partial<ChatMessage
   return { id: uid(), from, text, ts: Date.now(), ...extra };
 }
 
-export function createSlot(setup: GameSetup, linked: LinkedRun | null): SaveSlot {
+/**
+ * Free-write-only runs hide the Role/Entrance toggles, so their defaults (Hero / Hit by bus) must not
+ * drive mechanics that contradict the written premise (iron sword, Squire, Otherworlder form...).
+ * Interim policy (pending Matt's call): use the neutral 'Other' archetype and a neutral entrance.
+ */
+export function mechanicalSetup(setup: GameSetup): GameSetup {
+  if (setup.pathMode !== 'Free write') return setup;
+  return { ...setup, role: 'Other', roleCustom: '', entrance: 'Other', entranceOther: '' };
+}
+
+export function createSlot(rawSetup: GameSetup, linked: LinkedRun | null): SaveSlot {
+  const setup = mechanicalSetup(rawSetup);
   const role = setup.role;
   const now = Date.now();
   const starter = [...STARTER_SKILLS[role]];
@@ -190,9 +201,11 @@ export function resolveIntent(slot: SaveSlot, intent: Intent): { events: GameEve
       res.stupid.push(skill.name);
       tickSkill(slot, skill, -1, 'Misused', ev);
       const dmg = 2 + Math.floor(rand(slot) * 4);
+      const before = c.hp;
       c.hp = Math.max(1, c.hp - dmg);
-      res.damageTaken += dmg;
-      ev.push({ type: 'hp', delta: -dmg, reason: `Consequence of misusing ${skill.name}` });
+      const lost = before - c.hp;
+      res.damageTaken += lost;
+      if (lost > 0) ev.push({ type: 'hp', delta: -lost, reason: `Consequence of misusing ${skill.name}` });
       continue;
     }
 
@@ -235,9 +248,11 @@ export function resolveIntent(slot: SaveSlot, intent: Intent): { events: GameEve
     const success = attempted && threat <= levelEdge + 6 + Math.floor(rand(slot) * 8);
     const dmg = Math.max(0, Math.round(threat * (success ? 0.4 : 1) * (easy ? 0.6 : 1) * (0.5 + rand(slot))));
     if (dmg > 0) {
+      const before = c.hp;
       c.hp = Math.max(easy ? 1 : 0, c.hp - dmg);
-      res.damageTaken += dmg;
-      ev.push({ type: 'hp', delta: -dmg, reason: success ? 'Took hits in the fight' : 'Beaten back' });
+      const lost = before - c.hp;
+      res.damageTaken += lost;
+      if (lost > 0) ev.push({ type: 'hp', delta: -lost, reason: success ? 'Took hits in the fight' : 'Beaten back' });
     }
     if (success) {
       const prevKind = slot.streak.kind;

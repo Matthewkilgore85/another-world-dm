@@ -41,7 +41,7 @@ export function GameScreen({ slot, busy, onSend, onPause, onUnlock, dmLabel, dmK
   return (
     <div className="game">
       <header className="game-bar">
-        <button className="btn ghost small" onClick={onPause} title="Autosave and return to saves">⏸ Pause</button>
+        <button className="btn ghost small" disabled={busy} onClick={onPause} title="Autosave and return to saves">⏸ Pause</button>
         <div className="game-title">
           <b>{slot.name}</b>
           <span className="muted">Chapter {slot.chapter}</span>
@@ -85,7 +85,7 @@ export function GameScreen({ slot, busy, onSend, onPause, onUnlock, dmLabel, dmK
 
         <div className={`sheet-wrap ${sheetOpen ? 'open' : ''}`}>
           <button className="btn ghost small sheet-close" onClick={() => setSheetOpen(false)}>Close ✕</button>
-          <Sheet slot={slot} onUnlock={onUnlock} />
+          <Sheet slot={slot} busy={busy} onUnlock={onUnlock} />
         </div>
       </div>
 

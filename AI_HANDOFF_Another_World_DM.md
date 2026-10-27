@@ -109,4 +109,22 @@ Test unconventional magic, crafting, NPC relationships, companion agency, rival 
 
 **2026-10-27, ChatGPT:** Completed source inspection and listed suspected issues/improvements. No tests were run, no project code was modified, and no GitHub issue could be created through the current integration. Grok: review the P0s first, report which findings you agree/disagree with, and link the fixes/tests. Please preserve the existing notes and append a dated response here.
 
+**2026-10-27, Grok (Chief of Staff):** Inspected commit `400acec` (main). Fixes on branch `handoff/p0-fixes`, code commit `4d58406` (PR link below once opened). Note: this file stays named `AI_HANDOFF_Another_World_DM.md` — it is the `AI_HANDOFF.md` ChatGPT referred to.
+
+*Verdicts*
+- P0 free-write vs Hero defaults — **Confirmed.** `setup.ts:5,7` defaults `role:'Hero'`, `entrance:'Hit by bus'`, `jobMode:'Set'`; `NewGame.tsx:24` hides toggles in Free write; `engine.ts createSlot` built skills/inventory/job/form from them (`engine.ts:65` iron sword). **Fixed (interim):** new `mechanicalSetup()` in `engine.ts` — Free-write-only runs use the neutral `Other` archetype (Appraise/Dodge, Novice ladder, Stranger form) and neutral entrance (Mysterious trinket). "Both" mode still uses the player's toggles. **Matt to decide** the final design (e.g. ask for a compatible role after free-write, or derive + confirm).
+- P0 damage badge vs HP floor — **Confirmed** (`engine.ts:192-195` and `236-240` pushed full `dmg`). **Fixed:** report `before - after`; no hp event when nothing was lost.
+- P0 Pause/unlock race while busy — **Confirmed** (`GameScreen.tsx:44` Pause not disabled; `Sheet.tsx:75` unlock not disabled; `App.tsx send()` persisted + navigated unconditionally). **Fixed:** Pause and unlock buttons disabled while busy, handlers also ignore calls while busy, `send` ignores re-entry, and a generation counter makes a late response after leaving the game save the slot without navigating back.
+- P0 Groq vs xAI — **Confirmed** (`dmProxy.mjs:57` picked xAI first). **Fixed:** explicit `DM_PROVIDER` still wins; otherwise `GROQ_API_KEY` wins even when `XAI_API_KEY` is also set (one-time console warning). There is still no automatic fallback between providers (there never was one). `.env.example` now ships `DM_PROVIDER=groq`; README updated.
+- P1 unlockBranch validation — **Agree / Confirmed** (`engine.ts unlockBranch` checks only def/points/ownership; `rules.ts unlockableBranches` carries parent/rank/tier checks). The UI blocks it today, so this is defense in depth. Deferred.
+- P1 loot authority — **Agree** (`engine.ts:307` adds every `intent.loot` string). Deferred.
+- P1 world memory — **Agree** (`prompts.ts:53-67`: last N log lines, last 12 flags, latest checkpoint). Deferred.
+- P1 save export/import/migration — **Agree** (`storage.ts` localStorage only, `version` unused). Deferred.
+- P1 practice quests — **Confirmed as described** (`engine.ts` finds only `!done` quests, so a new one is created after completion). **Question for Matt:** should practice quests repeat? If so, with diminishing returns or rising targets?
+- P2 progression balance / API usage / roleplay tests — **Agree, not defects.** Not touched.
+
+*Tests:* `npm run build` OK, `npm run lint` (oxlint) clean, `npm test` 24 passed / 1 skipped (live smoke). New: `src/game/engine.test.ts` (HP clamp at 2 HP and 1 HP, free-write has no iron sword/bus pass/Squire/Otherworlder, toggle Hero unchanged, basic unlockBranch rejects) and `server/pickProvider.test.ts` (no key / xAI only / Groq only / both → groq / explicit wins). Manual check for the race: slow the proxy, send an action, confirm Pause and Unlock are greyed out until the DM replies.
+
+*Open for Matt:* (1) Final free-write mechanics policy. (2) Practice-quest repeatability. (3) The Groq key still needs to go in your local `.env` (`GROQ_API_KEY=...`, `DM_PROVIDER=groq`). It is not in the repo and never should be. Once it's there, check that `/api/dm/status` reports `provider: "groq"`. (4) `live.smoke.test.ts` only covers xAI; a Groq variant is a small follow-up.
+
 **Next entry from Grok:** [date, inspected commit, accepted/disputed findings, code changes, tests, questions for Matt/ChatGPT].
