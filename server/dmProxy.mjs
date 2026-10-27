@@ -50,12 +50,23 @@ const PROVIDERS = {
   },
 };
 
-/** DM_PROVIDER=xai|groq wins; otherwise groq if only GROQ_API_KEY is set, else xai if XAI_API_KEY, else null. */
+/**
+ * DM_PROVIDER=xai|groq wins. Otherwise prefer the free-tier Groq backend whenever GROQ_API_KEY is set
+ * (even if XAI_API_KEY is also set) so paid xAI is never chosen silently; xai only if it is the sole key.
+ * There is no automatic fallback between providers: if the chosen one fails, the request fails.
+ */
+let warnedAmbiguous = false;
 export function pickProvider() {
   const explicit = env('DM_PROVIDER').toLowerCase();
   if (PROVIDERS[explicit]) return explicit;
+  if (env('GROQ_API_KEY')) {
+    if (env('XAI_API_KEY') && !warnedAmbiguous) {
+      warnedAmbiguous = true;
+      console.warn('[dm-proxy] Both GROQ_API_KEY and XAI_API_KEY set without DM_PROVIDER; using groq (free tier). Set DM_PROVIDER=xai to use paid xAI.');
+    }
+    return 'groq';
+  }
   if (env('XAI_API_KEY')) return 'xai';
-  if (env('GROQ_API_KEY')) return 'groq';
   return null;
 }
 const prov = () => PROVIDERS[pickProvider()] || null;
