@@ -10,7 +10,7 @@ interface Props {
   onPause: () => void;
   onUnlock: (skillId: string) => void;
   dmLabel: string;
-  dmKind: 'AI' | 'Stub';
+  dmKind: string; // 'AI (xAI)' | 'AI (Groq)' | 'Stub'
 }
 
 function eventLabel(e: GameEvent): { text: string; cls: string } | null {
@@ -45,7 +45,7 @@ export function GameScreen({ slot, busy, onSend, onPause, onUnlock, dmLabel, dmK
         <div className="game-title">
           <b>{slot.name}</b>
           <span className="muted">Chapter {slot.chapter}</span>
-          <span className={`dm-badge ${dmKind === 'AI' ? 'ai' : 'stub'}`} title={dmLabel}>DM: {dmKind}</span>
+          <span className={`dm-badge ${dmKind.startsWith('AI') ? 'ai' : 'stub'}`} title={dmLabel}>DM: {dmKind}</span>
         </div>
         <button className="btn ghost small sheet-toggle" onClick={() => setSheetOpen((o) => !o)}>
           Lv {c.level} · HP {c.hp}/{c.maxHp}

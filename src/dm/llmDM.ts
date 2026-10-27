@@ -14,12 +14,12 @@ export const DM_API_BASE = '/api/dm';
 type Msg = { role: 'system' | 'user' | 'assistant'; content: string };
 interface ChatOpts { json?: boolean | { name: string; schema: unknown }; temperature?: number; max_tokens?: number }
 
-export async function dmStatus(base = DM_API_BASE): Promise<{ configured: boolean; model?: string }> {
+export async function dmStatus(base = DM_API_BASE): Promise<{ configured: boolean; provider?: 'xai' | 'groq'; model?: string }> {
   try {
     const r = await fetch(`${base}/status`, { signal: AbortSignal.timeout(3000) });
     if (!r.ok) return { configured: false };
     const j = await r.json();
-    return { configured: j?.configured === true, model: typeof j?.model === 'string' ? j.model : undefined };
+    return { configured: j?.configured === true, provider: j?.provider === 'groq' || j?.provider === 'xai' ? j.provider : undefined, model: typeof j?.model === 'string' ? j.model : undefined };
   } catch {
     return { configured: false };
   }
@@ -34,14 +34,16 @@ const CHECKPOINT_SCHEMA = {
 export class LLMDM implements DMProvider {
   readonly id = 'llm';
   readonly label: string;
+  readonly providerName: 'xAI' | 'Groq';
   private stub = new StubDM();
   private notice: string | null = null;
   private outageReported = false;
   private base: string;
 
-  constructor(opts: { model?: string; base?: string } = {}) {
+  constructor(opts: { model?: string; base?: string; provider?: 'xai' | 'groq' } = {}) {
     this.base = opts.base ?? DM_API_BASE;
-    this.label = `AI DM (xAI ${opts.model ?? 'Grok'})`;
+    this.providerName = opts.provider === 'groq' ? 'Groq' : 'xAI';
+    this.label = `AI DM (${this.providerName} ${opts.model ?? (opts.provider === 'groq' ? 'Llama' : 'Grok')})`;
   }
 
   /** Engine calls this after each DM step; returns a one-line error to show in chat, at most once per outage. */

@@ -73,7 +73,7 @@ export default function App() {
       )}
       {screen.kind === 'new' && <NewGame slots={slots} onCancel={() => setScreen({ kind: 'title' })} onStart={start} />}
       {screen.kind === 'game' && (
-        <GameScreen slot={screen.slot} busy={busy} onSend={send} onPause={pause} onUnlock={unlock} dmLabel={dm.label} dmKind={dm.id === 'llm' ? 'AI' : 'Stub'} />
+        <GameScreen slot={screen.slot} busy={busy} onSend={send} onPause={pause} onUnlock={unlock} dmLabel={dm.label} dmKind={dm.id === 'llm' ? `AI (${(dm as { providerName?: string }).providerName ?? 'xAI'})` : 'Stub'} />
       )}
     </div>
   );

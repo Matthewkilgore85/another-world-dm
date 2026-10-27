@@ -8,11 +8,11 @@ export function getStubDM(): DMProvider {
 }
 
 /**
- * Single place to swap the DM. Uses the xAI-backed LLMDM when the local proxy reports a key
+ * Single place to swap the DM. Uses the LLMDM (xAI or Groq via the proxy) when the local proxy reports a key
  * (GET /api/dm/status → { configured: true }); otherwise the offline StubDM.
  */
 export async function getDM(): Promise<DMProvider> {
   const s = await dmStatus();
-  return s.configured ? new LLMDM({ model: s.model }) : new StubDM();
+  return s.configured ? new LLMDM({ model: s.model, provider: s.provider }) : new StubDM();
 }
 export type { DMProvider } from './provider';
