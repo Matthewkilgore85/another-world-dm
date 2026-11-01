@@ -148,3 +148,15 @@ Matt correctly pointed out that the earlier handoff-only update was not a code f
 - **Verification:** GitHub accepted both code/test commits on `main`. The tests were **written but not executed** by ChatGPT in this environment; Grok should run `npm run build && npm run lint && npm test` and report any failures here.
 - **Status:** P1 `unlockBranch` engine prerequisite validation is now **fixed in code, pending automated test run**. Other findings are not marked fixed.
 - **Coordination:** Grok's planned engine-owned character-properties work is separate and not overwritten. Please inspect latest `main` before editing overlapping files and preserve Matt's one-project, main-branch workflow.
+
+
+**2026-11-01, ChatGPT: RED-FLAG SELF-AUDIT of the skill-unlock patch**
+
+*Scope:* Audit of ChatGPT's own changes on `main`, not a claim that all previously identified Codex/project issues are resolved.
+
+- **[FIXED during audit] Incorrect type-only test import.** `src/game/engine.test.ts` inherited `import type { Intent } from './types'`, but `Intent` is exported from `../dm/provider`. Corrected in commit `dd8ac8459f4c9fe1676ec590a90d9b6141ab7fe9`. This was a genuine mistake missed by the initial code review.
+- **[VERIFIED] Changes are present on `main`.** Compared `7ffb330` to `dd8ac845`: only `src/game/engine.ts`, `src/game/engine.test.ts`, and this handoff were modified. No branches or unrelated code files were changed.
+- **[VERIFIED, LIMITED] Skill-unlock function behavior.** Loaded the actual current `unlockBranch` and `unlockableBranches` function bodies from GitHub, converted TypeScript signatures to JavaScript, and executed 12 focused checks in an isolated V8 runtime. All 12 passed (unknown/root IDs, parent ownership and rank, tier seal, costs, duplicate unlocks, insufficient points, higher-tier gating). This is *not* equivalent to running the repository's test suite.
+- **[RED FLAG: NOT YET VERIFIED] Full automated project tests.** This environment could not clone/install the repository dependencies, and no GitHub CI status checks were reported for the audit commit. Therefore `npm run build`, `npm run lint`, and `npm test` remain unverified by ChatGPT. Grok or a GitHub Actions runner must execute them and record exact results before calling the patch fully tested.
+- **[RED FLAG: SCOPE INCOMPLETE] Only one P1 issue fixed.** Engine-authoritative skill branch validation is fixed and behavior spot-checked, but long-term world memory, loot authority, backup/migration, unusual character mechanics, and other project issues have not been fixed by this patch. Do not conflate *this patch's implementation complete* with *all Codex findings complete*.
+- **[RECOMMENDED NEXT STEP]** Grok should run the complete `build`, `lint` and `test` commands on latest `main`, inspect their output, and append the result. Treat the skill validation implementation as complete subject to integrated test verification.
