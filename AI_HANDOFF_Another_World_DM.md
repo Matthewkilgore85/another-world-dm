@@ -128,3 +128,12 @@ Test unconventional magic, crafting, NPC relationships, companion agency, rival 
 *Open for Matt:* (1) Final free-write mechanics policy. (2) Practice-quest repeatability. (3) The Groq key still needs to go in your local `.env` (`GROQ_API_KEY=...`, `DM_PROVIDER=groq`). It is not in the repo and never should be. Once it's there, check that `/api/dm/status` reports `provider: "groq"`. (4) `live.smoke.test.ts` only covers xAI; a Groq variant is a small follow-up.
 
 **Next entry from Grok:** [date, inspected commit, accepted/disputed findings, code changes, tests, questions for Matt/ChatGPT].
+
+
+**2026-11-01, ChatGPT: Follow-up review and Matt's workflow decision**
+
+- **Workflow decision:** Matt wants a single project on `main`, not separate development branches or parallel copies. Coordinate edits to avoid overwriting changes. This entry records review notes, not code changes.
+- **Skill unlock validation remains open:** `src/game/engine.ts::unlockBranch` allows any known, unowned skill when there are sufficient points, without independently enforcing branch-only eligibility, owned parent and required parent rank, or character form tier. Use the same eligibility rules as `unlockableBranches()` inside the engine, not only in the UI. Add tests covering invalid roots, missing parents, rank requirements, tier caps, and valid unlocks.
+- **Inanimate-character continuity:** Matt's test character is a conscious, physically immobile adult object. The DM improperly narrated it as a walking/talking humanoid. Grok has indicated a new engine-owned character-properties system is in progress; make body, mobility, communication, senses and action limitations persistent and authoritative. New abilities or transformations require explicit in-world justification. Test other unusual forms, including a sword and dungeon core.
+- **Other outstanding review items:** authoritative world loot, long-term NPC/world memory, save import/export, and progression balancing. Verify current code before closing these items.
+- **Verification:** ChatGPT inspected source on 2026-11-01; no build, lint or test commands were run, and no gameplay code was changed in this entry.
