@@ -1,6 +1,7 @@
 // Local, deterministic-ish stub DM. No network, no keys.
 // Heuristic classifier + template narrator. Swap for an LLM provider via src/dm/index.ts.
 import { MOB_XP, MUTATIONS, SKILL_BY_ID, SKILL_DEFS } from '../game/rules';
+import { actionConflictsWithBody, describeEmbodiment, ensureProperties, isEmbodiedObject } from '../game/embodiment';
 import type { CheckpointOffer, GameSetup, SaveSlot } from '../game/types';
 import type { DMProvider, DMTurn, Intent, Resolution, SkillUseIntent } from './provider';
 
@@ -158,6 +159,22 @@ export class StubDM implements DMProvider {
     if (slot.linkedFrom) {
       parts.push(`(Linked run) Echoes of "${slot.linkedFrom.slotName}" linger: ${slot.linkedFrom.characterName} once reached Lv ${slot.linkedFrom.level}. ${slot.linkedFrom.summary}`);
     }
+    const props = ensureProperties(slot);
+    if (isEmbodiedObject(props) || !props.canIndependentMove || !props.hasLimbs) {
+      const what = props.objectType ?? props.bodyKind;
+      parts.push(`Awareness returns before anything else. You are ${c.name} — and you are not a person. You are a ${what}${props.sizeHint ? ` (${props.sizeHint})` : ''}.`);
+      const limits: string[] = [];
+      if (!props.hasLimbs) limits.push('no limbs');
+      if (!props.canIndependentMove) limits.push('no way to move on your own');
+      if (!props.canOrdinarySpeech) limits.push('no mouth or voice');
+      if (limits.length) parts.push(`You have ${limits.join(', ')}. Wherever you were left is where you stay until something moves you.`);
+      parts.push(`You perceive through ${props.senses.join(', ')}.${props.communication.length ? ` If you reach out to anyone, it will be through ${props.communication.join(' / ').replace(/_/g, ' ')}.` : ''}`);
+      if (s.freeWrite.trim()) parts.push(`The world has bent to your design: ${s.freeWrite.trim()}`);
+      parts.push('Somewhere nearby, faint vibrations and stray mana hint that you are not alone — and that someone may eventually find you.');
+      parts.push(`Body:\n${describeEmbodiment(props)}`);
+      parts.push(`Skills: ${c.skills.map((k) => k.name).join(', ')}. What do you do?`);
+      return { narrative: parts.join('\n\n'), suggestions: this.suggest(slot) };
+    }
     if (useToggles) {
       parts.push(s.entrance === 'Other' && s.entranceOther ? s.entranceOther : ENTRANCE_TEXT[s.entrance]);
       parts.push(`You are ${c.name}, a ${pronoun(s)} from another world.`);
@@ -175,6 +192,14 @@ export class StubDM implements DMProvider {
   }
 
   suggest(slot: SaveSlot): string[] {
+    const props = ensureProperties(slot);
+    if (isEmbodiedObject(props) || !props.canIndependentMove) {
+      const out = ['Sense my surroundings through vibration and magic'];
+      if (props.communication.includes('telepathy')) out.push('Telepathically call out to anyone nearby');
+      else if (props.canOrdinarySpeech) out.push('Call out to anyone nearby');
+      out.push('Wait quietly for someone to pick me up');
+      return out;
+    }
     const role = slot.setup.role;
     const base = ['Look around and appraise my surroundings', 'Sneak toward the nearest sound'];
     if (role === 'Hero' || role === 'Battle creature') base.push('Attack the slime with Slash'.replace('Slash', role === 'Hero' ? 'Slash' : 'Bite'));
@@ -219,6 +244,17 @@ export class StubDM implements DMProvider {
   async narrate(slot: SaveSlot, input: string, intent: Intent, res: Resolution): Promise<DMTurn> {
     const seed = hash(input + slot.meaningfulActions);
     const lines: string[] = [];
+    const props = ensureProperties(slot);
+    const conflict = actionConflictsWithBody(props, input);
+    if (conflict) {
+      // Never narrate walking/grabbing/shouting success for a body that can't do it.
+      lines.push(`You try — and your body reminds you what it is. ${conflict}`);
+      if (res.questCompleted) lines.push(`A chime only you can hear: [${res.questCompleted}] complete.`);
+      if (res.learned.length) lines.push(`[New skill: ${res.learned.join(', ')}]`);
+      if (res.leveledTo) lines.push(`Power floods through you. [Level ${res.leveledTo}]`);
+      lines.push(isEmbodiedObject(props) ? 'Around you, the world goes on, unaware of the struggle inside one motionless thing.' : flavor(slot, seed + 1));
+      return { narrative: lines.join(' ') };
+    }
     for (const r of res.reframes) {
       lines.push(`You raise your weapon — not to strike, but to make a point. The ${intent.skillUses.find((u) => u.reframedFrom)?.target ?? 'target'} goes pale. (${r.from} reframed as ${r.to}.)`);
     }
@@ -238,7 +274,7 @@ export class StubDM implements DMProvider {
       `That was… not what ${res.stupid[0]} is for. It goes about as well as you'd expect.`,
       `The world punishes creativity of that particular kind. ${res.stupid[0]} backfires.`,
     ], seed));
-    if (intent.practice && !res.killed.length) lines.push('You drill until your arms ache. Progress is slow, but real.');
+    if (intent.practice && !res.killed.length) lines.push(isEmbodiedObject(props) ? 'You focus inward, turning your senses over and over. Progress is slow, but real.' : 'You drill until your arms ache. Progress is slow, but real.');
     if (res.questCompleted) lines.push(`A chime only you can hear: [${res.questCompleted}] complete.`);
     if (res.learned.length) lines.push(`[New skill: ${res.learned.join(', ')}]`);
     if (res.leveledTo) lines.push(`Power floods through you. [Level ${res.leveledTo}]`);
@@ -250,7 +286,7 @@ export class StubDM implements DMProvider {
       : 'It matters — maybe more than you know yet.');
     if (res.healed) lines.push('You rest and patch yourself up.');
     if (intent.loot.length) lines.push(`You collect: ${intent.loot.join(', ')}.`);
-    if (!lines.length) lines.push(genericBeat(slot, input, seed));
+    if (!lines.length) lines.push(isEmbodiedObject(props) ? `You focus your will on it: "${input.length > 80 ? input.slice(0, 77) + '…' : input}". Without a body to act, the effect is subtle — a flicker of mana, a faint hum — but something registers.` : genericBeat(slot, input, seed));
     lines.push(flavor(slot, seed + 1));
     return { narrative: lines.join(' ') };
   }

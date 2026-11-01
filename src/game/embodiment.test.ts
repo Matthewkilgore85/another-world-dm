@@ -70,3 +70,16 @@ describe('createSlot with object premise', () => {
     expect(actionConflictsWithBody(slot.character.properties, 'I sense the magic around me')).toBeNull();
   });
 });
+
+describe('StubDM respects embodiment', () => {
+  it.each(['I am reincarnated as a sentient sex toy', 'I wake up as a sentient sword in a stone'])('opening for %s is not humanoid', async (premise) => {
+    const { StubDM } = await import('../dm/stubDM');
+    const dm = new StubDM();
+    const slot = createSlot(fw(premise), null);
+    const open = await dm.openingScene(slot);
+    expect(open.narrative).not.toMatch(/young (man|woman)|open (your )?eyes|Far to the north/i);
+    expect(open.narrative).toMatch(/toy|sword|weapon|no limbs|telepath|move on your own/i);
+    expect(open.narrative).toMatch(/What do you do\?/);
+    expect(dm.suggest(slot).join(' ')).not.toMatch(/Sneak|Slash/);
+  });
+});
