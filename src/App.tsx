@@ -44,6 +44,7 @@ export default function App() {
     try {
       const next = await playTurn(screen.slot, text, dm);
       if (gen !== turnGen.current) { saveSlot(next); refresh(); return; } // paused meanwhile: save, don't navigate
+      persist(next);
     } finally {
       setBusy(false);
     }
@@ -73,6 +74,7 @@ export default function App() {
       {screen.kind === 'title' && (
         <TitleScreen
           slots={slots}
+          dmKind={dm.id === 'llm' ? `AI (${(dm as { providerName?: string }).providerName ?? 'xAI'})` : 'local stub — no AI calls'}
           onNew={() => setScreen({ kind: 'new' })}
           onLoad={(id) => { const s = loadSlot(id); if (s) setScreen({ kind: 'game', slot: s }); }}
           onDelete={(id) => { deleteSlot(id); refresh(); }}

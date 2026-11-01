@@ -44,8 +44,10 @@ const PROVIDERS = {
     name: 'Groq',
     keyVar: 'GROQ_API_KEY',
     url: () => (env('GROQ_BASE_URL') || 'https://api.groq.com/openai/v1').replace(/\/+$/, '') + '/chat/completions',
-    model: () => env('GROQ_MODEL') || 'llama-3.1-8b-instant',
-    effort: () => '',
+    model: () => env('GROQ_MODEL') || 'openai/gpt-oss-20b',
+    // gpt-oss is a reasoning model: without low effort it can burn the budget on reasoning and return empty content.
+    // Valid: low|medium|high (Groq rejects 'none'). Set GROQ_REASONING_EFFORT= (empty) to omit.
+    effort: () => { const e = process.env.GROQ_REASONING_EFFORT ?? 'low'; return e === 'none' ? 'low' : e; },
     timeout: () => Number(process.env.GROQ_TIMEOUT_MS || 45000),
   },
 };
@@ -155,8 +157,19 @@ async function chat(body) {
     const msg = r.data?.error?.message || r.data?.error || r.data?.message || r.text.slice(0, 200) || `HTTP ${r.status}`;
     return [502, { error: `${p.name} ${r.status}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`.slice(0, 300) }];
   }
-  const content = r.data?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || !content.trim()) return [502, { error: `${p.name} returned no content` }];
+  let content = r.data?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) {
+    // Reasoning models may spend the whole budget on reasoning: retry once with low effort + more tokens.
+    if (p.name === 'Groq' || payload.reasoning_effort) payload.reasoning_effort = 'low';
+    payload.max_tokens = Math.min(2000, Math.max(1200, payload.max_tokens));
+    const r2 = await callUpstream(p, payload);
+    if (r2.ok) { r = r2; content = r.data?.choices?.[0]?.message?.content; }
+    if (typeof content !== 'string' || !content.trim()) {
+      const ch = r.data?.choices?.[0];
+      const why = `finish_reason=${ch?.finish_reason ?? '?'} reasoning_len=${(ch?.message?.reasoning || '').length}${r2.ok ? '' : ` retry_status=${r2.status}`}`;
+      return [502, { error: `${p.name} returned no content (${why})`.slice(0, 300) }];
+    }
+  }
   return [200, { content, model: r.data?.model || MODEL }];
 }
 
