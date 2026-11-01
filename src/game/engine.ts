@@ -5,7 +5,8 @@ import {
   OPEN_JOB_SEED_THRESHOLD, JOB_LADDERS, SKILL_BY_ID, SOFT_STORY_CAP, STARTER_SKILLS,
   initialForm, initialJob, jobXpToNext, makeSkill, mobXp, nextRandom, practiceToRank, storyXp, unlockableBranches, xpToNext,
 } from './rules';
-import type { ChatMessage, GameEvent, GameSetup, LinkedRun, SaveSlot, Skill } from './types';
+import { actionConflictsWithBody, bodyStarterSkills, derivePropertiesFromSetup, ensureProperties, isEmbodiedObject, objectStartingInventory } from './embodiment';
+import type { CharacterProperties, ChatMessage, GameEvent, GameSetup, LinkedRun, SaveSlot, Skill } from './types';
 
 export const CHECKPOINT_EVERY = 5; // meaningful actions between fake checkpoints
 export const PRACTICE_QUEST_TARGET = 6;
@@ -21,6 +22,16 @@ function msg(from: ChatMessage['from'], text: string, extra: Partial<ChatMessage
  * drive mechanics that contradict the written premise (iron sword, Squire, Otherworlder form...).
  * Interim policy (pending Matt's call): use the neutral 'Other' archetype and a neutral entrance.
  */
+
+/** Short fiction-facing form label from free-write ("as a spider" → "spider"). Mechanical stages still use Other's line. */
+export function premiseFormLabel(setup: GameSetup): string {
+  const fw = setup.freeWrite.trim();
+  if (!fw) return 'As premised';
+  const m = fw.match(/\bas (?:a|an|the)\s+([^.,;\n]{2,56})/i);
+  if (m) return m[1].trim().replace(/\s+/g, ' ').slice(0, 48);
+  return 'As premised';
+}
+
 export function mechanicalSetup(setup: GameSetup): GameSetup {
   if (setup.pathMode !== 'Free write') return setup;
   return { ...setup, role: 'Other', roleCustom: '', entrance: 'Other', entranceOther: '' };
@@ -30,7 +41,8 @@ export function createSlot(rawSetup: GameSetup, linked: LinkedRun | null): SaveS
   const setup = mechanicalSetup(rawSetup);
   const role = setup.role;
   const now = Date.now();
-  const starter = [...STARTER_SKILLS[role]];
+  const properties = derivePropertiesFromSetup(rawSetup);
+  const starter = bodyStarterSkills(properties, [...STARTER_SKILLS[role]]);
   if (setup.powerMode === 'Open' && !starter.includes('mana_sense')) starter.push('mana_sense');
   return {
     version: 1,
@@ -45,10 +57,18 @@ export function createSlot(rawSetup: GameSetup, linked: LinkedRun | null): SaveS
       hp: 20, maxHp: 20,
       skillPoints: 0,
       skills: starter.map(makeSkill),
-      inventory: startingInventory(setup),
+      inventory: startingInventory(setup, properties),
       job: initialJob(setup.jobMode, role),
       jobTagCounts: {},
-      form: initialForm(role),
+      form: (() => {
+        const f = initialForm(role);
+        if (rawSetup.pathMode === 'Free write' && rawSetup.freeWrite.trim()) {
+          f.name = premiseFormLabel(setup);
+          f.history = [f.name];
+        }
+        return f;
+      })(),
+      properties,
     },
     log: [],
     flags: linked ? [`linked:${linked.slotName}`] : [],
@@ -63,7 +83,8 @@ export function createSlot(rawSetup: GameSetup, linked: LinkedRun | null): SaveS
   };
 }
 
-function startingInventory(setup: GameSetup) {
+function startingInventory(setup: GameSetup, props?: CharacterProperties) {
+  if (props && isEmbodiedObject(props)) return objectStartingInventory(props).map((i) => ({ id: uid(), qty: 1, ...i }));
   const items: { name: string; note?: string }[] = [];
   switch (setup.entrance) {
     case 'Hit by bus': items.push({ name: 'Cracked smartphone', note: '3% battery' }, { name: 'Bus pass' }); break;
@@ -344,6 +365,10 @@ export function resolveIntent(slot: SaveSlot, intent: Intent): { events: GameEve
       ev.push({ type: 'form', text: `Mutation → ${c.form.name}. Your line forks; base tools kept as add-ons.` });
     }
     res.mutatedTo = c.form.name;
+    if (c.properties && /\b(human|humanoid|body|flesh|limbs?|legs?|arms?)\b/i.test(kind)) {
+      c.properties = { ...c.properties, bodyKind: 'humanoid', hasLimbs: true, mobility: 'full', canIndependentMove: true, canOrdinarySpeech: true, communication: [...new Set([...c.properties.communication, 'speech' as const])], anatomyNotes: `${c.properties.anatomyNotes} → transformed by ${kind} mutation` };
+      ev.push({ type: 'form', text: `Your body itself changed (${kind}): new physical capabilities are now canon.` });
+    }
     slot.flags.push(`mutation:${kind}`);
   }
 
@@ -413,6 +438,8 @@ export async function playTurn(slot: SaveSlot, input: string, dm: DMProvider): P
 
   const intent = await dm.interpret(s, text);
   const { events, res } = resolveIntent(s, intent);
+  const conflict = actionConflictsWithBody(ensureProperties(s), text);
+  if (conflict) events.unshift({ type: 'note', text: conflict });
   const turn = await dm.narrate(s, text, intent, res);
   pushNotice(s, dm);
   s.log.push(msg('dm', turn.narrative, { events }));
