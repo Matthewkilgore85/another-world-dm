@@ -44,11 +44,64 @@ describe('free-write mechanics (P0)', () => {
   });
 });
 
-describe('unlockBranch (current behavior, P1 documented)', () => {
-  it('rejects unknown ids and insufficient points', () => {
+describe('unlockBranch (engine-authoritative prerequisites)', () => {
+  it('rejects unknown skills and root skills even with plenty of points', () => {
     const slot = createSlot(defaultSetup(), null);
+    slot.character.skillPoints = 10;
     expect(unlockBranch(slot, 'nope')).toEqual([]);
-    slot.character.skillPoints = 0;
     expect(unlockBranch(slot, 'slash')).toEqual([]);
+    expect(unlockBranch(slot, 'fireball')).toEqual([]);
+    expect(slot.character.skillPoints).toBe(10);
+  });
+
+  it('requires an owned parent at its minimum rank', () => {
+    const slot = createSlot(defaultSetup(), null);
+    slot.character.skillPoints = 10;
+    expect(unlockBranch(slot, 'venom_bite')).toEqual([]); // Hero has no Bite.
+    expect(unlockBranch(slot, 'slash_plus')).toEqual([]); // Slash starts at rank 1.
+    expect(unlockBranch(slot, 'double_slash')).toEqual([]); // Slash+ is missing.
+    expect(slot.character.skillPoints).toBe(10);
+    slot.character.skills.find((s) => s.id === 'slash')!.rank = 2;
+    const events = unlockBranch(slot, 'slash_plus');
+    expect(events.some((e) => e.type === 'skillLearn' && e.skillId === 'slash_plus')).toBe(true);
+    expect(slot.character.skillPoints).toBe(9);
+    expect(slot.character.skills.filter((s) => s.id === 'slash_plus')).toHaveLength(1);
+  });
+
+  it('enforces child prerequisite ranks and the correct cost', () => {
+    const slot = createSlot(defaultSetup(), null);
+    slot.character.skillPoints = 10;
+    slot.character.skills.find((s) => s.id === 'slash')!.rank = 2;
+    unlockBranch(slot, 'slash_plus');
+    expect(unlockBranch(slot, 'double_slash')).toEqual([]); // Slash+ needs rank 2.
+    expect(unlockBranch(slot, 'blazing_slash')).toEqual([]); // Slash+ needs rank 3.
+    slot.character.skills.find((s) => s.id === 'slash_plus')!.rank = 3;
+    expect(unlockBranch(slot, 'blazing_slash')).not.toEqual([]);
+    expect(slot.character.skillPoints).toBe(7); // 1 + 2 points spent.
+    expect(unlockBranch(slot, 'blazing_slash')).toEqual([]); // No double purchase.
+    expect(slot.character.skillPoints).toBe(7);
+  });
+
+  it('rejects branches sealed by the current form even when rank is sufficient', () => {
+    const slot = createSlot(defaultSetup(), null);
+    slot.character.skillPoints = 10;
+    slot.character.skills.find((s) => s.id === 'slash')!.rank = 2;
+    slot.character.form.skillTierCap = 0;
+    expect(unlockBranch(slot, 'slash_plus')).toEqual([]);
+    slot.character.form.skillTierCap = 1;
+    expect(unlockBranch(slot, 'slash_plus')).not.toEqual([]);
+    slot.character.skills.find((s) => s.id === 'slash_plus')!.rank = 2;
+    expect(unlockBranch(slot, 'double_slash')).toEqual([]); // Tier 2 remains sealed.
+    expect(slot.character.skillPoints).toBe(9);
+  });
+
+  it('never deducts points when a valid branch costs more than available', () => {
+    const slot = createSlot(defaultSetup(), null);
+    slot.character.skillPoints = 2;
+    slot.character.skills.find((s) => s.id === 'slash')!.rank = 2;
+    expect(unlockBranch(slot, 'slash_plus')).not.toEqual([]);
+    slot.character.skills.find((s) => s.id === 'slash_plus')!.rank = 3;
+    expect(unlockBranch(slot, 'blazing_slash')).toEqual([]); // Costs 2, only 1 left.
+    expect(slot.character.skillPoints).toBe(1);
   });
 });
