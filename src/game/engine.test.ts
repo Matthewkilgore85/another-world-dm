@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSlot, resolveIntent, unlockBranch } from './engine';
 import { defaultSetup } from './setup';
-import type { Intent } from './types';
+import type { Intent } from '../dm/provider';
 
 const intent = (over: Partial<Intent>): Intent => ({
   meaningful: true, kills: [], skillUses: [], practice: false, storyWeight: 'none', rest: false, loot: [],
