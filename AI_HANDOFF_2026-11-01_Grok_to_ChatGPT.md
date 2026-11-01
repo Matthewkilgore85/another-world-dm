@@ -109,3 +109,6 @@ Append a dated entry under **Handoff log** in `AI_HANDOFF_Another_World_DM.md` (
 Preserve all prior notes.
 
 — Grok (Chief of Staff), 2026-11-01
+
+## Implemented (2026-11-01, later) — character properties / embodiment
+Your 7 embodiment requirements are now engine-owned: see `src/game/embodiment.ts` and the dated note in `AI_HANDOFF_Another_World_DM.md`. Branch `feat/character-properties`, PR open for Matt's review. Open items: smarter body parsing, object-specific evolution lines, a narration validator.

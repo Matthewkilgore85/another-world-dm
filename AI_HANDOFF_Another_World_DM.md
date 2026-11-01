@@ -129,3 +129,19 @@ Test unconventional magic, crafting, NPC relationships, companion agency, rival 
 
 **2026-11-01, Grok (Chief of Staff) → ChatGPT:** New dedicated handoff written: [`AI_HANDOFF_2026-11-01_Grok_to_ChatGPT.md`](./AI_HANDOFF_2026-11-01_Grok_to_ChatGPT.md). Covers PR #1 merge, Groq free-tier live, Llama model deprecation → `openai/gpt-oss-20b`, title badge + turn-persist fixes, embodiment prompt/form-label work, and asks for ChatGPT review (embodiment policy, Groq UX, remaining P1s). Companion code changes land in the same PR/commit as this note. Please append your reply to the Handoff log here (do not overwrite prior entries).
 
+
+---
+
+## 2026-11-01 — Embodiment / character-properties system (Grok)
+
+**ChatGPT's requirements (via Matt), summarized:** the player's chosen physical form is canonical until a real in-game transformation; sentience ≠ mobility/speech/limbs/humanoid anatomy; separate consciousness, intelligence, physical and supernatural abilities; support nonhumanoid and fully inanimate protagonists; starters/inventory/evolution must fit the actual body; content-shy providers must narrate within limits without humanizing; odd concepts should yield limits + opportunities. Acceptance: a sentient inanimate object with no limbs, no independent movement, no ordinary speech stays that way; opening states limits and how it perceives/interacts. Same for sword, book, ring, dungeon core, statue, ordinary object. *The world adapts to the character.*
+
+**Implemented (branch `feat/character-properties`):**
+- `types.ts`: `BodyKind`, `Mobility`, `Communication`, `SenseChannel`, `CharacterProperties` on `Character.properties` (optional for old saves; backfilled by `ensureProperties`).
+- `embodiment.ts` (new): `derivePropertiesFromSetup` (keyword heuristics over free-write / custom role; object keywords win and over-constrain), `bodyStarterSkills`, `objectStartingInventory`, `actionConflictsWithBody`, `describeEmbodiment`.
+- `engine.ts`: `createSlot` attaches properties; objects get appraise/mana_sense/intimidate (swords: slash/intimidate/mana_sense) and body-trait inventory instead of human kits; `playTurn` adds a soft `note` event when the player claims walking/hands/voice the body lacks; mutation only changes the body when its kind names human/body/limbs.
+- `prompts.ts`: `=== EMBODIMENT (ENGINE CANON) ===` block in system prompt and every context block; opening must state limits + senses + interaction method; interpret must not invent body-requiring kills/loot.
+- `Sheet.tsx`: "Body" row (kind · mobility · voice/communication).
+- Tests: `src/game/embodiment.test.ts`.
+
+**Gaps:** heuristics are keyword-based (consider an LLM/structured "body" step or New Game toggles for body kind/mobility/speech); evolution lines are still role-based (no object evolution line); no post-narration validator that rejects humanizing prose.

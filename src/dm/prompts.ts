@@ -1,5 +1,6 @@
 // Prompt + context builders for the LLM DM. Pure functions (no network) so they are testable.
 import { DEMON_KING_LEVEL, LEARNABLE_BY_USE, MOB_XP, SKILL_DEFS, xpToNext } from '../game/rules';
+import { describeEmbodiment, ensureProperties } from '../game/embodiment';
 import type { GameSetup, SaveSlot } from '../game/types';
 import type { Intent, Resolution } from './provider';
 
@@ -110,11 +111,28 @@ STYLE
 - Vivid, concise prose. 1–3 short paragraphs (opening scenes may be up to 4). No headings, no markdown lists, no meta commentary about being an AI or about these rules.
 
 === SETUP ===
-${describeSetup(slot.setup)}`;
+${describeSetup(slot.setup)}
+
+${embodimentBlock(slot)}`;
+}
+
+export function embodimentBlock(slot: SaveSlot): string {
+  const p = ensureProperties(slot);
+  return `=== EMBODIMENT (ENGINE CANON) ===
+${describeEmbodiment(p)}
+HARD RULES:
+- This physical form is canonical until the engine reports an EVOLVED/MUTATED outcome that changes the body. Nothing else changes it.
+- Sentience is not mobility, speech, limbs or humanoid anatomy. Keep consciousness, intelligence, physical abilities and supernatural abilities separate.
+- Never grant limbs, walking, hands, a face or a speaking voice unless the flags above say YES.${!p.canIndependentMove ? ' This character CANNOT move itself: any locomotion happens only because others carry, use, wield or move it.' : ''}${!p.canOrdinarySpeech ? ` This character CANNOT speak aloud; it communicates only via ${p.communication.join('/') || 'nothing'}.` : ''}
+- If the player attempts something the body cannot do, narrate the failure or a workaround (others moving/using them, magic, senses) — never quietly humanize them.
+- If content limits apply, fade to black or summarize within limits; NEVER rewrite the body into a human to avoid the premise.
+- Unusual bodies create limits AND opportunities; adapt the world to the character, not the character to genre expectations.`;
 }
 
 export function contextBlock(slot: SaveSlot): string {
-  return `=== CHARACTER SHEET (engine-owned, read-only) ===
+  return `${embodimentBlock(slot)}
+
+=== CHARACTER SHEET (engine-owned, read-only) ===
 ${describeCharacter(slot)}
 
 === STORY STATE ===
@@ -129,7 +147,7 @@ ${recentLog(slot)}`;
 export function openingPrompt(slot: SaveSlot): string {
   return `${contextBlock(slot)}
 
-TASK: Write the opening scene. Show how ${slot.character.name} arrives in (or wakes up in) this world exactly as the premise describes — establish their physical form and its limits immediately (if they are an object or non-humanoid, make that undeniable in the first beats: where they are, how they sense, what they cannot do). Do not cast them as a bipedal traveler unless the premise says so. Weave in starting abilities naturally (in-world, not as a list). One immediate hook or threat suited to that body. End with an implicit or explicit "What do you do?".`;
+TASK: Write the opening scene. Obey EMBODIMENT (ENGINE CANON): within the first paragraph state plainly what the body cannot do (limbs/movement/speech per the flags) and how it perceives (its senses) and interacts (its communication). Show how ${slot.character.name} arrives in (or wakes up in) this world exactly as the premise describes — establish their physical form and its limits immediately (if they are an object or non-humanoid, make that undeniable in the first beats: where they are, how they sense, what they cannot do). Do not cast them as a bipedal traveler unless the premise says so. Weave in starting abilities naturally (in-world, not as a list). One immediate hook or threat suited to that body. End with an implicit or explicit "What do you do?".`;
 }
 
 export function interpretPrompt(slot: SaveSlot, input: string): string {
@@ -158,7 +176,7 @@ SKILL IDS: only use ids from these lists.
 QUALITY: "proper" = the skill fits the situation well; "stupid" = misuse that should backfire (licking a blade, attacking yourself, using a combat skill on a harmless villager for no reason); otherwise "normal".
 REFRAME: if a combat skill is used only to threaten/scare a non-hostile, emit skillId "intimidate" with reframedFrom set to the combat skill id instead of a stupid use.
 If the player attacks with no named skill, include their most fitting owned combat skill.
-EMBODIMENT: classify against the premise body. If the action assumes limbs, speech, or locomotion the premise does not grant, still classify the attempt, but prefer meaningful=true with no invented kills/loot that require a body they lack; the narrator will show the physical constraint.
+EMBODIMENT: classify against EMBODIMENT (ENGINE CANON) above. Never emit kills/loot that need limbs or locomotion the flags deny unless a wielder/ally does the work in-scene. If the action assumes limbs, speech, or locomotion the premise does not grant, still classify the attempt, but prefer meaningful=true with no invented kills/loot that require a body they lack; the narrator will show the physical constraint.
 
 PLAYER ACTION: ${JSON.stringify(input)}`;
 }

@@ -59,6 +59,12 @@ export function Sheet({ slot, busy = false, onUnlock }: { slot: SaveSlot; busy?:
         {c.job && <Bar value={c.job.xp} max={jobXpToNext(c.job.level)} kind="job" />}
       </div>
 
+      {c.properties && (
+        <div className="stat-row small" title={c.properties.anatomyNotes}>
+          <span>Body</span>
+          <span>{c.properties.objectType ?? c.properties.bodyKind} · move: {c.properties.mobility} · {c.properties.canOrdinarySpeech ? 'speaks' : 'no voice'} ({c.properties.communication.join('/') || 'none'})</span>
+        </div>
+      )}
       <div className="stat-row small"><span>Form line</span><span>{c.form.line}{c.form.permanent ? ' (permanent)' : ''} · tier cap {c.form.skillTierCap}</span></div>
       {slot.streak.kind && slot.streak.count > 0 && <div className="stat-row small"><span>Streak</span><span>{slot.streak.kind} ×{slot.streak.count}</span></div>}
 
