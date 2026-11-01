@@ -3,7 +3,7 @@ import type { DMProvider, Intent, Resolution } from '../dm/provider';
 import {
   EVOLUTION_LINES, EVOLVE_LEVEL_STEP, HARD_CAP, LEARNABLE_BY_USE, MOB_THREAT, OPEN_JOB_BY_TAG,
   OPEN_JOB_SEED_THRESHOLD, JOB_LADDERS, SKILL_BY_ID, SOFT_STORY_CAP, STARTER_SKILLS,
-  initialForm, initialJob, jobXpToNext, makeSkill, mobXp, nextRandom, practiceToRank, storyXp, xpToNext,
+  initialForm, initialJob, jobXpToNext, makeSkill, mobXp, nextRandom, practiceToRank, storyXp, unlockableBranches, xpToNext,
 } from './rules';
 import { actionConflictsWithBody, bodyStarterSkills, derivePropertiesFromSetup, ensureProperties, isEmbodiedObject, objectStartingInventory } from './embodiment';
 import type { CharacterProperties, ChatMessage, GameEvent, GameSetup, LinkedRun, SaveSlot, Skill } from './types';
@@ -381,12 +381,16 @@ export function resolveIntent(slot: SaveSlot, intent: Intent): { events: GameEve
   return { events: ev, res };
 }
 
-/** Spend skill points on a branch. Branches are added beside the base, never replacing it. */
+/** Spend skill points on a branch. Enforce prerequisites here, not only in the UI. */
 export function unlockBranch(slot: SaveSlot, skillId: string): GameEvent[] {
-  const def = SKILL_BY_ID[skillId];
   const c = slot.character;
-  const cost = def?.cost ?? 1;
-  if (!def || c.skillPoints < cost || c.skills.some((s) => s.id === skillId)) return [];
+  // Only the skill tree's currently eligible branches may be purchased.
+  // This rejects root skills, already-owned skills, missing/under-ranked parents
+  // and skills sealed by the character's current form.
+  const def = unlockableBranches(c.skills, c.form).find((branch) => branch.id === skillId);
+  if (!def) return [];
+  const cost = def.cost ?? 1;
+  if (c.skillPoints < cost) return [];
   c.skillPoints -= cost;
   c.skills.push(makeSkill(skillId));
   return [{ type: 'skillLearn', skillId, name: def.name }, { type: 'skillPoints', amount: -cost, reason: `Unlocked ${def.name}` }];

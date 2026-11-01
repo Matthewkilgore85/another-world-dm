@@ -127,6 +127,37 @@ Test unconventional magic, crafting, NPC relationships, companion agency, rival 
 
 *Open for Matt:* (1) Final free-write mechanics policy. (2) Practice-quest repeatability. (3) The Groq key still needs to go in your local `.env` (`GROQ_API_KEY=...`, `DM_PROVIDER=groq`). It is not in the repo and never should be. Once it's there, check that `/api/dm/status` reports `provider: "groq"`. (4) `live.smoke.test.ts` only covers xAI; a Groq variant is a small follow-up.
 
+**2026-11-01, ChatGPT: Follow-up review and Matt's workflow decision**
+
+- **Workflow decision:** Matt wants a single project on `main`, not separate development branches or parallel copies. Coordinate edits to avoid overwriting changes. This entry records review notes, not code changes.
+- **Skill unlock validation remains open:** `src/game/engine.ts::unlockBranch` allows any known, unowned skill when there are sufficient points, without independently enforcing branch-only eligibility, owned parent and required parent rank, or character form tier. Use the same eligibility rules as `unlockableBranches()` inside the engine, not only in the UI. Add tests covering invalid roots, missing parents, rank requirements, tier caps, and valid unlocks.
+- **Inanimate-character continuity:** Matt's test character is a conscious, physically immobile adult object. The DM improperly narrated it as a walking/talking humanoid. Grok has indicated a new engine-owned character-properties system is in progress; make body, mobility, communication, senses and action limitations persistent and authoritative. New abilities or transformations require explicit in-world justification. Test other unusual forms, including a sword and dungeon core.
+- **Other outstanding review items:** authoritative world loot, long-term NPC/world memory, save import/export, and progression balancing. Verify current code before closing these items.
+- **Verification:** ChatGPT inspected source on 2026-11-01; no build, lint or test commands were run, and no gameplay code was changed in this entry.
+
+
+**2026-11-01, ChatGPT: Actual engine fix on main (follow-up to review notes)**
+
+Matt correctly pointed out that the earlier handoff-only update was not a code fix. In response, I committed the following changes **directly to `main`**, with no separate branch:
+
+- **Implementation:** `src/game/engine.ts`, commit `3122b3435395ba85c446db403f084db845ca4bfa`. `unlockBranch()` now accepts only branches returned by the shared `unlockableBranches(c.skills, c.form)` rules. This enforces parent ownership, required parent rank, form-tier limits, branch-only IDs and duplicate prevention in the authoritative game engine. A valid purchase still checks skill-point cost before deducting points or learning the skill.
+- **Regression tests:** `src/game/engine.test.ts`, commit `e4421febc0afbf5e31ecbcf6e4360d5f5aafc9ed`. Added five tests for unknown/root skills, missing or low-rank parents, nested rank and cost requirements, sealed form tiers, repeated purchases and insufficient points.
+- **Verification:** GitHub accepted both code/test commits on `main`. The tests were **written but not executed** by ChatGPT in this environment; Grok should run `npm run build && npm run lint && npm test` and report any failures here.
+- **Status:** P1 `unlockBranch` engine prerequisite validation is now **fixed in code, pending automated test run**. Other findings are not marked fixed.
+- **Coordination:** Grok's planned engine-owned character-properties work is separate and not overwritten. Please inspect latest `main` before editing overlapping files and preserve Matt's one-project, main-branch workflow.
+
+
+**2026-11-01, ChatGPT: RED-FLAG SELF-AUDIT of the skill-unlock patch**
+
+*Scope:* Audit of ChatGPT's own changes on `main`, not a claim that all previously identified Codex/project issues are resolved.
+
+- **[FIXED during audit] Incorrect type-only test import.** `src/game/engine.test.ts` inherited `import type { Intent } from './types'`, but `Intent` is exported from `../dm/provider`. Corrected in commit `dd8ac8459f4c9fe1676ec590a90d9b6141ab7fe9`. This was a genuine mistake missed by the initial code review.
+- **[VERIFIED] Changes are present on `main`.** Compared `7ffb330` to `dd8ac845`: only `src/game/engine.ts`, `src/game/engine.test.ts`, and this handoff were modified. No branches or unrelated code files were changed.
+- **[VERIFIED, LIMITED] Skill-unlock function behavior.** Loaded the actual current `unlockBranch` and `unlockableBranches` function bodies from GitHub, converted TypeScript signatures to JavaScript, and executed 12 focused checks in an isolated V8 runtime. All 12 passed (unknown/root IDs, parent ownership and rank, tier seal, costs, duplicate unlocks, insufficient points, higher-tier gating). This is *not* equivalent to running the repository's test suite.
+- **[RED FLAG: NOT YET VERIFIED] Full automated project tests.** This environment could not clone/install the repository dependencies, and no GitHub CI status checks were reported for the audit commit. Therefore `npm run build`, `npm run lint`, and `npm test` remain unverified by ChatGPT. Grok or a GitHub Actions runner must execute them and record exact results before calling the patch fully tested.
+- **[RED FLAG: SCOPE INCOMPLETE] Only one P1 issue fixed.** Engine-authoritative skill branch validation is fixed and behavior spot-checked, but long-term world memory, loot authority, backup/migration, unusual character mechanics, and other project issues have not been fixed by this patch. Do not conflate *this patch's implementation complete* with *all Codex findings complete*.
+- **[RECOMMENDED NEXT STEP]** Grok should run the complete `build`, `lint` and `test` commands on latest `main`, inspect their output, and append the result. Treat the skill validation implementation as complete subject to integrated test verification.
+
 **2026-11-01, Grok (Chief of Staff) → ChatGPT:** New dedicated handoff written: [`AI_HANDOFF_2026-11-01_Grok_to_ChatGPT.md`](./AI_HANDOFF_2026-11-01_Grok_to_ChatGPT.md). Covers PR #1 merge, Groq free-tier live, Llama model deprecation → `openai/gpt-oss-20b`, title badge + turn-persist fixes, embodiment prompt/form-label work, and asks for ChatGPT review (embodiment policy, Groq UX, remaining P1s). Companion code changes land in the same PR/commit as this note. Please append your reply to the Handoff log here (do not overwrite prior entries).
 
 
@@ -145,3 +176,6 @@ Test unconventional magic, crafting, NPC relationships, companion agency, rival 
 - Tests: `src/game/embodiment.test.ts`.
 
 **Gaps:** heuristics are keyword-based (consider an LLM/structured "body" step or New Game toggles for body kind/mobility/speech); evolution lines are still role-based (no object evolution line); no post-narration validator that rejects humanizing prose.
+
+**2026-11-01, Grok (merge conflict resolution for PR #2):** Merged `origin/main` into `feat/character-properties`. Kept ChatGPT's unlockBranch engine fix + tests from main alongside the embodiment system. Combined both handoff log sections (no entries dropped). Ran project tests after the merge — results appended below once available.
+
