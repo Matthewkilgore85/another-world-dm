@@ -40,6 +40,28 @@ export interface GameSetup {
   jobMode: JobMode;
 }
 
+// ---------- Embodiment (engine canon) ----------
+export type BodyKind = 'humanoid' | 'creature' | 'object' | 'core' | 'amorphous' | 'other';
+export type Mobility = 'none' | 'assisted' | 'limited' | 'full';
+export type Communication = 'none' | 'writing' | 'gesture' | 'telepathy' | 'speech' | 'magic_projection';
+export type SenseChannel = 'sight' | 'hearing' | 'touch' | 'smell' | 'taste' | 'magic' | 'vibration' | 'temperature' | 'other';
+
+/** Engine-owned physical facts about the protagonist. The DM must obey these; only evolve/mutate may change them. */
+export interface CharacterProperties {
+  bodyKind: BodyKind;
+  /** What the body specifically is (sword, book, ring, dungeon core...). */
+  objectType?: string;
+  anatomyNotes: string;
+  hasLimbs: boolean;
+  mobility: Mobility;
+  communication: Communication[];
+  senses: SenseChannel[];
+  canIndependentMove: boolean;
+  canOrdinarySpeech: boolean;
+  sizeHint?: string;
+  derivedFromPremise: boolean;
+}
+
 export interface Skill {
   id: string;
   name: string;
@@ -91,6 +113,8 @@ export interface Character {
   job: Job | null;
   jobTagCounts: Record<string, number>; // Open job seeding
   form: Form;
+  /** Optional for old saves; filled by ensureProperties on load. */
+  properties?: CharacterProperties;
 }
 
 export interface PracticeQuest {

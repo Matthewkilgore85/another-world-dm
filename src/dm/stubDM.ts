@@ -1,6 +1,7 @@
 // Local, deterministic-ish stub DM. No network, no keys.
 // Heuristic classifier + template narrator. Swap for an LLM provider via src/dm/index.ts.
 import { MOB_XP, MUTATIONS, SKILL_BY_ID, SKILL_DEFS } from '../game/rules';
+import { actionConflictsWithBody, describeEmbodiment, ensureProperties, isEmbodiedObject } from '../game/embodiment';
 import type { CheckpointOffer, GameSetup, SaveSlot } from '../game/types';
 import type { DMProvider, DMTurn, Intent, Resolution, SkillUseIntent } from './provider';
 
@@ -158,6 +159,22 @@ export class StubDM implements DMProvider {
     if (slot.linkedFrom) {
       parts.push(`(Linked run) Echoes of "${slot.linkedFrom.slotName}" linger: ${slot.linkedFrom.characterName} once reached Lv ${slot.linkedFrom.level}. ${slot.linkedFrom.summary}`);
     }
+    const props = ensureProperties(slot);
+    if (isEmbodiedObject(props) || !props.canIndependentMove || !props.hasLimbs) {
+      const what = props.objectType ?? props.bodyKind;
+      parts.push(`Awareness returns before anything else. You are ${c.name} — and you are not a person. You are a ${what}${props.sizeHint ? ` (${props.sizeHint})` : ''}.`);
+      const limits: string[] = [];
+      if (!props.hasLimbs) limits.push('no limbs');
+      if (!props.canIndependentMove) limits.push('no way to move on your own');
+      if (!props.canOrdinarySpeech) limits.push('no mouth or voice');
+      if (limits.length) parts.push(`You have ${limits.join(', ')}. Wherever you were left is where you stay until something moves you.`);
+      parts.push(`You perceive through ${props.senses.join(', ')}.${props.communication.length ? ` If you reach out to anyone, it will be through ${props.communication.join(' / ').replace(/_/g, ' ')}.` : ''}`);
+      if (s.freeWrite.trim()) parts.push(`The world has bent to your design: ${s.freeWrite.trim()}`);
+      parts.push('Somewhere nearby, faint vibrations and stray mana hint that you are not alone — and that someone may eventually find you.');
+      parts.push(`Body:\n${describeEmbodiment(props)}`);
+      parts.push(`Skills: ${c.skills.map((k) => k.name).join(', ')}. What do you do?`);
+      return { narrative: parts.join('\n\n'), suggestions: this.suggest(slot) };
+    }
     if (useToggles) {
       parts.push(s.entrance === 'Other' && s.entranceOther ? s.entranceOther : ENTRANCE_TEXT[s.entrance]);
       parts.push(`You are ${c.name}, a ${pronoun(s)} from another world.`);
@@ -175,6 +192,14 @@ export class StubDM implements DMProvider {
   }
 
   suggest(slot: SaveSlot): string[] {
+    const props = ensureProperties(slot);
+    if (isEmbodiedObject(props) || !props.canIndependentMove || !props.hasLimbs) {
+      const out = ['Sense my surroundings through vibration and magic'];
+      if (props.communication.includes('telepathy')) out.push('Telepathically call out to anyone nearby');
+      else if (props.canOrdinarySpeech) out.push('Call out to anyone nearby');
+      out.push('Will someone nearby to notice and pick me up');
+      return out;
+    }
     const role = slot.setup.role;
     const base = ['Look around and appraise my surroundings', 'Sneak toward the nearest sound'];
     if (role === 'Hero' || role === 'Battle creature') base.push('Attack the slime with Slash'.replace('Slash', role === 'Hero' ? 'Slash' : 'Bite'));
@@ -219,6 +244,17 @@ export class StubDM implements DMProvider {
   async narrate(slot: SaveSlot, input: string, intent: Intent, res: Resolution): Promise<DMTurn> {
     const seed = hash(input + slot.meaningfulActions);
     const lines: string[] = [];
+    const props = ensureProperties(slot);
+    const conflict = actionConflictsWithBody(props, input);
+    if (conflict) {
+      // Never narrate walking/grabbing/shouting success for a body that can't do it.
+      lines.push(`You try — and your body reminds you what it is. ${conflict}`);
+      if (res.questCompleted) lines.push(`A chime only you can hear: [${res.questCompleted}] complete.`);
+      if (res.learned.length) lines.push(`[New skill: ${res.learned.join(', ')}]`);
+      if (res.leveledTo) lines.push(`Power floods through you. [Level ${res.leveledTo}]`);
+      lines.push(isEmbodiedObject(props) ? 'Around you, the world goes on, unaware of the struggle inside one motionless thing.' : flavor(slot, seed + 1));
+      return { narrative: lines.join(' ') };
+    }
     for (const r of res.reframes) {
       lines.push(`You raise your weapon — not to strike, but to make a point. The ${intent.skillUses.find((u) => u.reframedFrom)?.target ?? 'target'} goes pale. (${r.from} reframed as ${r.to}.)`);
     }
@@ -238,7 +274,7 @@ export class StubDM implements DMProvider {
       `That was… not what ${res.stupid[0]} is for. It goes about as well as you'd expect.`,
       `The world punishes creativity of that particular kind. ${res.stupid[0]} backfires.`,
     ], seed));
-    if (intent.practice && !res.killed.length) lines.push('You drill until your arms ache. Progress is slow, but real.');
+    if (intent.practice && !res.killed.length) lines.push(isEmbodiedObject(props) ? 'You focus inward, turning your senses over and over. Progress is slow, but real.' : 'You drill until your arms ache. Progress is slow, but real.');
     if (res.questCompleted) lines.push(`A chime only you can hear: [${res.questCompleted}] complete.`);
     if (res.learned.length) lines.push(`[New skill: ${res.learned.join(', ')}]`);
     if (res.leveledTo) lines.push(`Power floods through you. [Level ${res.leveledTo}]`);
@@ -323,10 +359,33 @@ function outcomeFor(intent: Intent, slot: SaveSlot): string {
 }
 
 function genericBeat(slot: SaveSlot, input: string, seed: number): string {
+  const props = ensureProperties(slot);
+  if (isEmbodiedObject(props) || !props.hasLimbs || !props.canIndependentMove) return objectBeat(props, input, seed);
   const short = input.length > 80 ? input.slice(0, 77) + '…' : input;
   return pick([
     `You ${short.replace(/^i\s+/i, '').replace(/^(\w)/, (m) => m.toLowerCase())}. The world takes note, quietly.`,
     `"${short}" — you act on it. Nothing explodes, which in ${slot.setup.tone === 'Comedic' ? 'this world' : 'a place like this'} counts as progress.`,
     'You do it. For a moment, nothing changes — then a small detail shifts that you will remember later.',
   ], seed);
+}
+
+function objectBeat(props: ReturnType<typeof ensureProperties>, input: string, seed: number): string {
+  const short = input.length > 60 ? input.slice(0, 57) + '…' : input;
+  const what = props.objectType ?? props.bodyKind;
+  const limit = !props.hasLimbs && !props.canIndependentMove ? 'No limbs, no motion of your own' : !props.hasLimbs ? 'No limbs' : 'No way to move yourself';
+  const tele = props.communication.includes('telepathy');
+  const sensory = [
+    `"${short}" — you will it as hard as a ${what} can. ${limit}; instead a faint vibration runs through you, and a floorboard creaks in answer — someone is coming closer.`,
+    `You push at the world with nothing but will ("${short}"). ${limit}. A breeze shifts the dust on your surface; footsteps approach, pause — and this time they stop.`,
+    `${limit} — the reminder is constant. Still, "${short}" stirs a low hum of residual enchantment, and a passing cat freezes, then yowls loud enough that its owner turns to look.`,
+  ];
+  const advance = [
+    `"${short}." A shadow falls across you, then warm fingers close around your ${what} body. A woman in a stained apron turns you over, curious, and tucks you into her pocket. The world sways as she walks — you are going somewhere new.`,
+    `${limit}, but it doesn't matter: a scavenger boy spots you, whistles, and scoops you up. "Someone'll pay for this." The light changes as you're carried indoors to a pawnshop counter.`,
+    `${tele ? 'Your telepathic push lands — half a word, no more. ' : ''}A traveler stops dead, glancing around for the voice, then her gaze drops — you've been noticed. She picks you up, weighs you in her palm, and a slow, interested smile spreads across her face.`,
+    `"${short}." Rough hands lift your ${what} body, then set you down somewhere softer — a velvet-lined drawer in a merchant's stall. Through the wood you feel a new voice haggling over your price.`,
+    `Time moves even if you can't: dusk falls, lanterns flare, and a couple stumbling home from the tavern nearly steps on you. One of them stoops, laughing, and pockets you.`,
+    `Someone who found you earlier comes back. Grip, warmth, and then you are being used — briefly, curiously, as you were made to be — before being set down on a different table, in a different room.`,
+  ];
+  return pick([...sensory, ...advance], seed);
 }

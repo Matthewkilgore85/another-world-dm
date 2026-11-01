@@ -76,7 +76,7 @@ export class LLMDM implements DMProvider {
     return j.content;
   }
 
-  private async prose(slot: SaveSlot, prompt: string, max_tokens = 600): Promise<string> {
+  private async prose(slot: SaveSlot, prompt: string, max_tokens = 900): Promise<string> {
     const t = (await this.chat(slot, prompt, { temperature: 0.85, max_tokens })).trim();
     if (!t) throw new Error('empty narrative');
     return t;
