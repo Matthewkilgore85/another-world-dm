@@ -193,11 +193,11 @@ export class StubDM implements DMProvider {
 
   suggest(slot: SaveSlot): string[] {
     const props = ensureProperties(slot);
-    if (isEmbodiedObject(props) || !props.canIndependentMove) {
+    if (isEmbodiedObject(props) || !props.canIndependentMove || !props.hasLimbs) {
       const out = ['Sense my surroundings through vibration and magic'];
       if (props.communication.includes('telepathy')) out.push('Telepathically call out to anyone nearby');
       else if (props.canOrdinarySpeech) out.push('Call out to anyone nearby');
-      out.push('Wait quietly for someone to pick me up');
+      out.push('Will someone nearby to notice and pick me up');
       return out;
     }
     const role = slot.setup.role;
@@ -373,12 +373,19 @@ function objectBeat(props: ReturnType<typeof ensureProperties>, input: string, s
   const short = input.length > 60 ? input.slice(0, 57) + '…' : input;
   const what = props.objectType ?? props.bodyKind;
   const limit = !props.hasLimbs && !props.canIndependentMove ? 'No limbs, no motion of your own' : !props.hasLimbs ? 'No limbs' : 'No way to move yourself';
-  return pick([
-    `"${short}" — you will it as hard as a ${what} can. ${limit}; instead a faint vibration runs through you, and somewhere nearby a floorboard creaks in answer.`,
-    `You turn the thought over: "${short}". ${limit}, so you listen. Warmth seeps into you from whatever surface you rest on — someone was here recently.`,
-    `Intent without a body: "${short}". ${limit}. Then — a shadow passes over you, and for a heartbeat you are certain you've been noticed.`,
-    `You push at the world with nothing but will ("${short}"). ${limit}. A breeze shifts the dust on your surface; footsteps approach, pause, and move on.`,
-    `"${short}." Your ${what} body stays exactly where it was left. But your senses sharpen: a smell of oil and candle smoke, a voice two rooms away.`,
-    `${limit} — the reminder is constant. Still, "${short}" stirs something: a low hum of residual enchantment that makes a nearby cat stare straight at you.`,
-  ], seed);
+  const tele = props.communication.includes('telepathy');
+  const sensory = [
+    `"${short}" — you will it as hard as a ${what} can. ${limit}; instead a faint vibration runs through you, and a floorboard creaks in answer — someone is coming closer.`,
+    `You push at the world with nothing but will ("${short}"). ${limit}. A breeze shifts the dust on your surface; footsteps approach, pause — and this time they stop.`,
+    `${limit} — the reminder is constant. Still, "${short}" stirs a low hum of residual enchantment, and a passing cat freezes, then yowls loud enough that its owner turns to look.`,
+  ];
+  const advance = [
+    `"${short}." A shadow falls across you, then warm fingers close around your ${what} body. A woman in a stained apron turns you over, curious, and tucks you into her pocket. The world sways as she walks — you are going somewhere new.`,
+    `${limit}, but it doesn't matter: a scavenger boy spots you, whistles, and scoops you up. "Someone'll pay for this." The light changes as you're carried indoors to a pawnshop counter.`,
+    `${tele ? 'Your telepathic push lands — half a word, no more. ' : ''}A traveler stops dead, glancing around for the voice, then her gaze drops — you've been noticed. She picks you up, weighs you in her palm, and a slow, interested smile spreads across her face.`,
+    `"${short}." Rough hands lift your ${what} body, then set you down somewhere softer — a velvet-lined drawer in a merchant's stall. Through the wood you feel a new voice haggling over your price.`,
+    `Time moves even if you can't: dusk falls, lanterns flare, and a couple stumbling home from the tavern nearly steps on you. One of them stoops, laughing, and pockets you.`,
+    `Someone who found you earlier comes back. Grip, warmth, and then you are being used — briefly, curiously, as you were made to be — before being set down on a different table, in a different room.`,
+  ];
+  return pick([...sensory, ...advance], seed);
 }

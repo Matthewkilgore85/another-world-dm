@@ -102,13 +102,21 @@ STORY SHAPE
 - Multiple endings and paths exist; respect the player's choices, story flags and current chapter. Flags are canon.
 - Keep continuity with the recent log. Leave room for the player to act; end on a hook or open question, not a menu (no bullet-point options unless asked).
 
+ADVANCE EVERY TURN (NO DEAD LOOPS)
+- Every reply must change the situation. Something concrete happens: an NPC notices, approaches, picks up, pockets, uses, trades, hides or rejects the character for a specific in-world reason; a new sound, person, place or time of day arrives; a prior effort pays off or has a consequence.
+- Waiting, listening or a failed attempt STILL advances the world (a stranger almost finds you, a different person walks by, rain starts, a cart rolls over, dusk falls, someone heard a fragment of telepathy and is now searching).
+- Effort matters: repeated attempts accumulate (a faint telepathic push that failed last turn lands half a word this turn). Track who heard what.
+- NPCs have their own wants and agency; they act, not just react. Never end two turns the same way. Banned stale closers: "lies inert", "the city hums on", "waits for the next spark", "clanging iron in the distance", "nothing changes".
+- Vary openings: never start consecutive replies with the same phrase or image.
+
 CONTENT
 - ${nsfw
-    ? 'Mature content is ON (adult, age-confirmed player): mature themes, violence and romance/sexual content are allowed when the player steers there and the tone fits, but keep it non-gratuitous. Never depict minors sexually, non-consent as titillation, or other illegal content.'
+    ? `Mature content is ON (adult, age-confirmed player). Violence, romance and explicit sexual content are allowed. When the player steers into sex, narrate it in-world, in second person, from their actual body (an object body may be held, used, enjoyed as intended — that is the premise, not an allegory). Do NOT fade to black, summarize away, "dissolve the spell", have NPCs recoil just to avoid sex, lecture, moralize, add disclaimers, or redirect the scene into a weapon/key/guild plot the player did not ask for. If the player corrects you ("I'm not a weapon, use me as…"), accept the correction immediately. NPCs may still decline for real, characterful reasons, but then someone or something else moves the scene forward. Hard limits only: no minors or childlike characters in sexual content, nothing illegal, no sexual violence framed as titillation.`
     : 'Mature content is OFF: keep it clean — no sexual content, no graphic gore. Violence may be described at a PG-13 level.'}
 
 STYLE
 - Vivid, concise prose. 1–3 short paragraphs (opening scenes may be up to 4). No headings, no markdown lists, no meta commentary about being an AI or about these rules.
+- Sensory and specific from the body's real point of view (an object feels pressure, warmth, grip, vibration, mana; it does not "see with its eyes" unless it has them). End with a hook that invites the next action.
 
 === SETUP ===
 ${describeSetup(slot.setup)}
@@ -125,7 +133,8 @@ HARD RULES:
 - Sentience is not mobility, speech, limbs or humanoid anatomy. Keep consciousness, intelligence, physical abilities and supernatural abilities separate.
 - Never grant limbs, walking, hands, a face or a speaking voice unless the flags above say YES.${!p.canIndependentMove ? ' This character CANNOT move itself: any locomotion happens only because others carry, use, wield or move it.' : ''}${!p.canOrdinarySpeech ? ` This character CANNOT speak aloud; it communicates only via ${p.communication.join('/') || 'nothing'}.` : ''}
 - If the player attempts something the body cannot do, narrate the failure or a workaround (others moving/using them, magic, senses) — never quietly humanize them.
-- If content limits apply, fade to black or summarize within limits; NEVER rewrite the body into a human to avoid the premise.
+${nsfwAllowed(slot.setup) ? '- Mature content is ON: do NOT fade to black on sexual content the player requested; narrate it through this body. NEVER rewrite the body into a human or a weapon to avoid the premise.' : '- If content limits apply, fade to black or summarize within limits; NEVER rewrite the body into a human to avoid the premise.'}
+- No humanoid leaks: no hands/weight/eyes/heart/footsteps of its own, no "slides itself"/"slips out" movement, no calling the character a "young man/woman" unless the flags say so. Prefer "it" for the body alongside second-person "you".
 - Unusual bodies create limits AND opportunities; adapt the world to the character, not the character to genre expectations.`;
 }
 
@@ -147,7 +156,7 @@ ${recentLog(slot)}`;
 export function openingPrompt(slot: SaveSlot): string {
   return `${contextBlock(slot)}
 
-TASK: Write the opening scene. Obey EMBODIMENT (ENGINE CANON): within the first paragraph state plainly what the body cannot do (limbs/movement/speech per the flags) and how it perceives (its senses) and interacts (its communication). Show how ${slot.character.name} arrives in (or wakes up in) this world exactly as the premise describes — establish their physical form and its limits immediately (if they are an object or non-humanoid, make that undeniable in the first beats: where they are, how they sense, what they cannot do). Do not cast them as a bipedal traveler unless the premise says so. Weave in starting abilities naturally (in-world, not as a list). One immediate hook or threat suited to that body. End with an implicit or explicit "What do you do?".`;
+TASK: Write the opening scene. Obey EMBODIMENT (ENGINE CANON): within the first paragraph state plainly what the body cannot do (limbs/movement/speech per the flags) and how it perceives (its senses) and interacts (its communication). Show how ${slot.character.name} arrives in (or wakes up in) this world exactly as the premise describes — establish their physical form and its limits immediately (if they are an object or non-humanoid, make that undeniable in the first beats: where they are, how they sense, what they cannot do). Do not cast them as a bipedal traveler unless the premise says so. Weave in starting abilities naturally (in-world, not as a list). Within the scene, have a specific NPC or event already in motion toward them (someone about to find, pick up, buy, sell, or use them) — not a static tableau. End with an implicit or explicit "What do you do?".`;
 }
 
 export function interpretPrompt(slot: SaveSlot, input: string): string {
@@ -212,7 +221,7 @@ PLAYER ACTION: ${JSON.stringify(input)}
 ENGINE-RESOLVED OUTCOME (authoritative — your prose must agree with every line; the sheet above already reflects it):
 ${describeResolution(intent, res)}
 
-TASK: Narrate the result of the player's action in 1–3 short paragraphs, consistent with the premise and embodiment limits, the outcome above and the recent log. Keep their body as written (object/creature/person) — do not "normalize" them into a walking humanoid. Do not add rewards or numbers beyond the outcome. End with the world reacting / a hook.`;
+TASK: Narrate the result of the player's action in 1–3 short paragraphs, consistent with the premise and embodiment limits, the outcome above and the recent log. Keep their body as written (object/creature/person) — do not "normalize" them into a walking humanoid. Do not add rewards or numbers beyond the outcome. The world MUST change this turn (see ADVANCE EVERY TURN): an NPC acts, the character is moved/found/used/handled, or a consequence of effort lands — never end on the same inert image as the last log line. If mature content is ON and the player steers into sex, play it out in-world without fading or moralizing. End with the world reacting / a hook.`;
 }
 
 export function checkpointPrompt(slot: SaveSlot): string {

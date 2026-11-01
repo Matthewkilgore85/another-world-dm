@@ -115,4 +115,48 @@ describe('StubDM narrate for limbless object bodies', () => {
     }
     expect(seen.size).toBeGreaterThan(1);
   });
+  it('object beats can advance the scene (found / picked up / noticed) and do not share one closer', async () => {
+    const { StubDM } = await import('../dm/stubDM');
+    const dm = new StubDM();
+    const slot = createSlot(fw('I am reincarnated as a sentient sex toy'), null);
+    const outs: string[] = [];
+    for (let i = 0; i < 24; i++) {
+      const input = `I wait ${i}`;
+      slot.meaningfulActions++;
+      outs.push((await dm.narrate(slot, input, await dm.interpret(slot, input), empty)).narrative);
+    }
+    expect(outs.some((o) => /picks you up|scoops you up|pockets you|noticed|lift your/i.test(o))).toBe(true);
+    const closers = new Set(outs.map((o) => o.slice(-40)));
+    expect(closers.size).toBeGreaterThan(2);
+    for (const o of outs) expect(o).not.toMatch(/Nothing explodes|slides itself|slips out|young man/i);
+  });
+});
+
+describe('prompts: advance + NSFW honoring', () => {
+  const nsfwSlot = () => { const s = createSlot({ ...fw('I am reincarnated as a sentient sex toy'), nsfw: true, ageConfirmed: true }, null); return s; };
+  it('system prompt demands advancing every turn', () => {
+    const sp = systemPrompt(createSlot(fw('I am reincarnated as a sentient sex toy'), null));
+    expect(sp).toMatch(/ADVANCE EVERY TURN/);
+    expect(sp).toMatch(/Never end two turns the same way/);
+  });
+  it('NSFW on: honors sexual steering, no fade/moralizing', () => {
+    const sp = systemPrompt(nsfwSlot());
+    expect(sp).toMatch(/Do NOT fade to black/);
+    expect(sp).toMatch(/moralize/);
+    expect(sp).not.toMatch(/non-gratuitous/);
+    expect(sp).not.toMatch(/fade to black or summarize within limits/);
+  });
+  it('NSFW off keeps content clean', () => {
+    expect(systemPrompt(createSlot(fw('I am reincarnated as a sentient sex toy'), null))).toMatch(/Mature content is OFF/);
+  });
+  it('narratePrompt requires the world to change', async () => {
+    const { narratePrompt } = await import('../dm/prompts');
+    const { StubDM } = await import('../dm/stubDM');
+    const slot = nsfwSlot();
+    const intent = await new StubDM().interpret(slot, 'I wait');
+    const empty2 = { hits: [], misses: [], stupid: [], reframes: [], killed: [], combatFailed: false, damageTaken: 0, healed: 0, leveledTo: null, learned: [], evolvedTo: null, mutatedTo: null, evolveBlockedReason: null, questCompleted: null };
+    const np = narratePrompt(slot, 'I wait', intent, empty2 as never);
+    expect(np).toMatch(/The world MUST change this turn/);
+    expect(np).toMatch(/without fading or moralizing/);
+  });
 });
