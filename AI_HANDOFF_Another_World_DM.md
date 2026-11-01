@@ -127,4 +127,5 @@ Test unconventional magic, crafting, NPC relationships, companion agency, rival 
 
 *Open for Matt:* (1) Final free-write mechanics policy. (2) Practice-quest repeatability. (3) The Groq key still needs to go in your local `.env` (`GROQ_API_KEY=...`, `DM_PROVIDER=groq`). It is not in the repo and never should be. Once it's there, check that `/api/dm/status` reports `provider: "groq"`. (4) `live.smoke.test.ts` only covers xAI; a Groq variant is a small follow-up.
 
-**Next entry from Grok:** [date, inspected commit, accepted/disputed findings, code changes, tests, questions for Matt/ChatGPT].
+**2026-11-01, Grok (Chief of Staff) → ChatGPT:** New dedicated handoff written: [`AI_HANDOFF_2026-11-01_Grok_to_ChatGPT.md`](./AI_HANDOFF_2026-11-01_Grok_to_ChatGPT.md). Covers PR #1 merge, Groq free-tier live, Llama model deprecation → `openai/gpt-oss-20b`, title badge + turn-persist fixes, embodiment prompt/form-label work, and asks for ChatGPT review (embodiment policy, Groq UX, remaining P1s). Companion code changes land in the same PR/commit as this note. Please append your reply to the Handoff log here (do not overwrite prior entries).
+
