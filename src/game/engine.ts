@@ -21,6 +21,16 @@ function msg(from: ChatMessage['from'], text: string, extra: Partial<ChatMessage
  * drive mechanics that contradict the written premise (iron sword, Squire, Otherworlder form...).
  * Interim policy (pending Matt's call): use the neutral 'Other' archetype and a neutral entrance.
  */
+
+/** Short fiction-facing form label from free-write ("as a spider" → "spider"). Mechanical stages still use Other's line. */
+export function premiseFormLabel(setup: GameSetup): string {
+  const fw = setup.freeWrite.trim();
+  if (!fw) return 'As premised';
+  const m = fw.match(/\bas (?:a|an|the)\s+([^.,;\n]{2,56})/i);
+  if (m) return m[1].trim().replace(/\s+/g, ' ').slice(0, 48);
+  return 'As premised';
+}
+
 export function mechanicalSetup(setup: GameSetup): GameSetup {
   if (setup.pathMode !== 'Free write') return setup;
   return { ...setup, role: 'Other', roleCustom: '', entrance: 'Other', entranceOther: '' };
@@ -48,7 +58,14 @@ export function createSlot(rawSetup: GameSetup, linked: LinkedRun | null): SaveS
       inventory: startingInventory(setup),
       job: initialJob(setup.jobMode, role),
       jobTagCounts: {},
-      form: initialForm(role),
+      form: (() => {
+        const f = initialForm(role);
+        if (rawSetup.pathMode === 'Free write' && rawSetup.freeWrite.trim()) {
+          f.name = premiseFormLabel(setup);
+          f.history = [f.name];
+        }
+        return f;
+      })(),
     },
     log: [],
     flags: linked ? [`linked:${linked.slotName}`] : [],

@@ -2,12 +2,13 @@ import type { SlotSummary } from '../game/types';
 
 interface Props {
   slots: SlotSummary[];
+  dmKind: string;
   onNew: () => void;
   onLoad: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function TitleScreen({ slots, onNew, onLoad, onDelete }: Props) {
+export function TitleScreen({ slots, dmKind, onNew, onLoad, onDelete }: Props) {
   return (
     <div className="title-screen">
       <header className="title-hero">
@@ -43,7 +44,7 @@ export function TitleScreen({ slots, onNew, onLoad, onDelete }: Props) {
           ))}
         </ul>
       </section>
-      <p className="footnote">Saves live in this browser (localStorage). DM: local stub — no AI calls.</p>
+      <p className="footnote">Saves live in this browser (localStorage). DM: {dmKind}.</p>
     </div>
   );
 }

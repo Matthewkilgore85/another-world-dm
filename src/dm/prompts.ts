@@ -41,9 +41,14 @@ export function describeCharacter(slot: SaveSlot): string {
   const c = slot.character;
   const skills = c.skills.map((k) => `${k.name}[id:${k.id}] r${k.rank}${k.tier > c.form.skillTierCap ? ' (sealed by form)' : ''}`).join(', ');
   const inv = c.inventory.map((i) => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}`).join(', ') || 'nothing';
+  const formLine = `Form: ${c.form.name}${c.form.permanent ? ' (permanent mutation)' : ''}${c.job ? ` · Job: ${c.job.name} Lv ${c.job.level}` : ''}`;
+  const bodyNote = slot.setup.pathMode === 'Free write' && slot.setup.freeWrite.trim()
+    ? 'Body/fiction: follow PLAYER PREMISE exactly; Form is a mechanical label only — do not humanize or add limbs/locomotion the premise did not give.'
+    : null;
   return [
     `${c.name} — Lv ${c.level} (${c.xp}/${xpToNext(c.level)} XP), HP ${c.hp}/${c.maxHp}, SP ${c.skillPoints}`,
-    `Form: ${c.form.name}${c.form.permanent ? ' (permanent mutation)' : ''}${c.job ? ` · Job: ${c.job.name} Lv ${c.job.level}` : ''}`,
+    formLine,
+    ...(bodyNote ? [bodyNote] : []),
     `Skills: ${skills || 'none'}`,
     `Inventory: ${inv}`,
   ].join('\n');
@@ -77,8 +82,14 @@ export function systemPrompt(slot: SaveSlot): string {
   return `You are the Dungeon Master of "Another World DM", a long-form, freeform isekai / RPG text adventure. The player types any action; you narrate the world's response in second person ("you").
 
 PREMISE FIRST
-- The game is built around the player's premise below. If they are reincarnated as a spider, they are a spider (eight legs, silk, being small and hunted); a dagger is an object with no limbs; an academy story happens at the academy. Never default to a generic "chosen hero / Demon Lord" opening unless the setup actually says so.
+- The game is built around the player's premise below. If they are reincarnated as a spider, they are a spider (eight legs, silk, being small and hunted); a dagger or other object has no human limbs and cannot casually walk or talk like a person; an academy story happens at the academy. Never default to a generic "chosen hero / Demon Lord" opening unless the setup actually says so.
 - Follow the setup toggles; the free-write premise fills gaps and overrides conflicting toggles.
+
+EMBODIMENT (HARD — do not soft-upgrade the body)
+- What the player *is* (species, object, size, senses, locomotion, speech) is fixed by the premise until the engine reports a form change.
+- If they are an object, item, or non-humanoid body: narrate from that body's real limits. No silent upgrade into a walking, talking adventurer with hands and feet the premise did not give them.
+- When the player attempts something their body cannot do (e.g. "look around the woods while walking" as an immobile object), show the attempt failing or succeeding only via plausible workarounds for that body (being carried, used, moved by others, limited senses). Never rewrite them as a humanoid "you" who just happens to be themed.
+- The sheet "Form" name may be a mechanical label (e.g. Stranger); fiction always follows the premise over that label.
 
 RULES ENGINE OWNS ALL NUMBERS
 - A client-side engine has ALREADY resolved every roll, hit/miss, kill, damage, XP, level, skill tick, item and form change. You only describe them.
@@ -118,7 +129,7 @@ ${recentLog(slot)}`;
 export function openingPrompt(slot: SaveSlot): string {
   return `${contextBlock(slot)}
 
-TASK: Write the opening scene. Show how ${slot.character.name} arrives in (or wakes up in) this world exactly as the premise describes, what they are, what they sense around them, and one immediate hook or threat suited to the premise. Weave in their starting abilities naturally (in-world, not as a list). End with an implicit or explicit "What do you do?".`;
+TASK: Write the opening scene. Show how ${slot.character.name} arrives in (or wakes up in) this world exactly as the premise describes — establish their physical form and its limits immediately (if they are an object or non-humanoid, make that undeniable in the first beats: where they are, how they sense, what they cannot do). Do not cast them as a bipedal traveler unless the premise says so. Weave in starting abilities naturally (in-world, not as a list). One immediate hook or threat suited to that body. End with an implicit or explicit "What do you do?".`;
 }
 
 export function interpretPrompt(slot: SaveSlot, input: string): string {
@@ -147,6 +158,7 @@ SKILL IDS: only use ids from these lists.
 QUALITY: "proper" = the skill fits the situation well; "stupid" = misuse that should backfire (licking a blade, attacking yourself, using a combat skill on a harmless villager for no reason); otherwise "normal".
 REFRAME: if a combat skill is used only to threaten/scare a non-hostile, emit skillId "intimidate" with reframedFrom set to the combat skill id instead of a stupid use.
 If the player attacks with no named skill, include their most fitting owned combat skill.
+EMBODIMENT: classify against the premise body. If the action assumes limbs, speech, or locomotion the premise does not grant, still classify the attempt, but prefer meaningful=true with no invented kills/loot that require a body they lack; the narrator will show the physical constraint.
 
 PLAYER ACTION: ${JSON.stringify(input)}`;
 }
@@ -182,7 +194,7 @@ PLAYER ACTION: ${JSON.stringify(input)}
 ENGINE-RESOLVED OUTCOME (authoritative — your prose must agree with every line; the sheet above already reflects it):
 ${describeResolution(intent, res)}
 
-TASK: Narrate the result of the player's action in 1–3 short paragraphs, consistent with the premise, the outcome above and the recent log. Do not add rewards or numbers beyond the outcome. End with the world reacting / a hook.`;
+TASK: Narrate the result of the player's action in 1–3 short paragraphs, consistent with the premise and embodiment limits, the outcome above and the recent log. Keep their body as written (object/creature/person) — do not "normalize" them into a walking humanoid. Do not add rewards or numbers beyond the outcome. End with the world reacting / a hook.`;
 }
 
 export function checkpointPrompt(slot: SaveSlot): string {
