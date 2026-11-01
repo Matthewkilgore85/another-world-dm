@@ -79,7 +79,7 @@ function fromRole(role: Role, notes: string, derived: boolean): CharacterPropert
   }
 }
 
-export const isEmbodiedObject = (p: CharacterProperties) => p.bodyKind === 'object' || p.bodyKind === 'core';
+export const isEmbodiedObject = (p: CharacterProperties) => p.bodyKind === 'object' || p.bodyKind === 'core' || !!p.objectType;
 
 /** Backfill for saves created before properties existed. */
 export function ensureProperties(slot: SaveSlot): CharacterProperties {
@@ -112,14 +112,16 @@ export function objectStartingInventory(p: CharacterProperties): { name: string;
 export function actionConflictsWithBody(p: CharacterProperties | undefined, text: string): string | null {
   if (!p) return null;
   const t = text.toLowerCase();
-  if (!p.canIndependentMove && /\b(i |)(walk|run|stand up|get up|climb|jump|kick|crawl|stride|step|sprint|dash)\b/.test(t))
+  if (!p.canIndependentMove && /\b(walk(s|ing)?|run(s|ning)?|stand up|get up|climb(s)?|jump(s)?|kick(s|ing)?|crawl(s)?|stride|step(s)?|sprint|dash|roll over|move (myself|my body|toward|towards|to|over))\b/.test(t))
     return `Your body (${p.objectType ?? p.bodyKind}) can't move on its own — you'll need someone or something to move you.`;
-  if (!p.hasLimbs && /\b(grab|punch|pick up|hold|reach (out|for)|wave|point at|my hands?|my arms?|my legs?)\b/.test(t))
+  if (!p.hasLimbs && /\b(grab(s|bing)?|punch(es|ing)?|pinch(es|ing)?|slap(s)?|pick up|hold(s|ing)?|reach (out|for)|wave|point at|kick(s|ing)?|hands?|arms?|legs?|fists?|fingers?|nuts|squeeze)\b/.test(t))
     return `You have no limbs to do that; use what your body does have.`;
   if (!p.canOrdinarySpeech && /\b(i say|i shout|i yell|i whisper|i tell|i speak|i talk|say ")/.test(t) && !p.communication.length)
     return `You can't speak aloud.`;
   if (!p.canOrdinarySpeech && /\b(i shout|i yell|i speak aloud|out loud)\b/.test(t))
     return `You have no voice; it comes through as ${p.communication.filter((c) => c !== 'none').join('/') || 'nothing'} instead.`;
+  if (isEmbodiedObject(p) && /\b(no (arms|limbs|hands|legs)|can'?t move|cannot move|unable to move|can'?t walk)\b/.test(t))
+    return `Right — no limbs, no way to move yourself. As a ${p.objectType ?? p.bodyKind}, you can only sense and wait to be moved.`;
   return null;
 }
 

@@ -83,3 +83,36 @@ describe('StubDM respects embodiment', () => {
     expect(dm.suggest(slot).join(' ')).not.toMatch(/Sneak|Slash/);
   });
 });
+
+describe('StubDM narrate for limbless object bodies', () => {
+  const empty = { hits: [], misses: [], stupid: [], reframes: [], killed: [], combatFailed: false, damageTaken: 0, healed: 0, leveledTo: null, learned: [], evolvedTo: null, mutatedTo: null, evolveBlockedReason: null, questCompleted: null };
+  const toyRole = () => ({ ...defaultSetup(), role: 'Custom', roleCustom: 'sentientsex toy' } as ReturnType<typeof defaultSetup>);
+  it('Toggles roleCustom "sentientsex toy" derives as toy', () => {
+    expect(derivePropertiesFromSetup(toyRole()).objectType).toBe('toy');
+  });
+  it('widened conflicts: punches/pinch/kick/arms on toy; telepathy is fine', () => {
+    const p = createSlot(fw('I am reincarnated as a sentient sex toy'), null).character.properties!;
+    for (const t of ['I punches myself', 'pinch his nuts', 'I kick the door', 'use my arms', 'I look around but can\'t move', 'I have no arms']) expect(actionConflictsWithBody(p, t)).not.toBeNull();
+    for (const t of ['I telepathically call out', 'I sense the magic around me', 'I listen carefully']) expect(actionConflictsWithBody(p, t)).toBeNull();
+  });
+  it.each(['punches myself', "look around but can't move", 'I listen carefully', 'I hum quietly', 'I wait'])('no humanoid template for "%s"', async (input) => {
+    const { StubDM } = await import('../dm/stubDM');
+    const dm = new StubDM();
+    const slot = createSlot(fw('I am reincarnated as a sentient sex toy'), null);
+    const intent = await dm.interpret(slot, input);
+    const out = (await dm.narrate(slot, input, intent, empty)).narrative;
+    expect(out).not.toMatch(/Nothing explodes|You do it|you act on it|arms ache/);
+    expect(out).toMatch(/limb|move|arms|body|vibrat|warmth|noticed|senses|hum|footsteps/i);
+  });
+  it('object beats vary across turns', async () => {
+    const { StubDM } = await import('../dm/stubDM');
+    const dm = new StubDM();
+    const slot = createSlot(fw('I am reincarnated as a sentient sex toy'), null);
+    const seen = new Set<string>();
+    for (const input of ['I wait', 'I listen', 'I hum', 'I wonder', 'I focus', 'I dream']) {
+      slot.meaningfulActions++;
+      seen.add((await dm.narrate(slot, input, await dm.interpret(slot, input), empty)).narrative.split('"')[0].slice(0, 20));
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+});

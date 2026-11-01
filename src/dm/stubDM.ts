@@ -286,7 +286,7 @@ export class StubDM implements DMProvider {
       : 'It matters — maybe more than you know yet.');
     if (res.healed) lines.push('You rest and patch yourself up.');
     if (intent.loot.length) lines.push(`You collect: ${intent.loot.join(', ')}.`);
-    if (!lines.length) lines.push(isEmbodiedObject(props) ? `You focus your will on it: "${input.length > 80 ? input.slice(0, 77) + '…' : input}". Without a body to act, the effect is subtle — a flicker of mana, a faint hum — but something registers.` : genericBeat(slot, input, seed));
+    if (!lines.length) lines.push(genericBeat(slot, input, seed));
     lines.push(flavor(slot, seed + 1));
     return { narrative: lines.join(' ') };
   }
@@ -359,10 +359,26 @@ function outcomeFor(intent: Intent, slot: SaveSlot): string {
 }
 
 function genericBeat(slot: SaveSlot, input: string, seed: number): string {
+  const props = ensureProperties(slot);
+  if (isEmbodiedObject(props) || !props.hasLimbs || !props.canIndependentMove) return objectBeat(props, input, seed);
   const short = input.length > 80 ? input.slice(0, 77) + '…' : input;
   return pick([
     `You ${short.replace(/^i\s+/i, '').replace(/^(\w)/, (m) => m.toLowerCase())}. The world takes note, quietly.`,
     `"${short}" — you act on it. Nothing explodes, which in ${slot.setup.tone === 'Comedic' ? 'this world' : 'a place like this'} counts as progress.`,
     'You do it. For a moment, nothing changes — then a small detail shifts that you will remember later.',
+  ], seed);
+}
+
+function objectBeat(props: ReturnType<typeof ensureProperties>, input: string, seed: number): string {
+  const short = input.length > 60 ? input.slice(0, 57) + '…' : input;
+  const what = props.objectType ?? props.bodyKind;
+  const limit = !props.hasLimbs && !props.canIndependentMove ? 'No limbs, no motion of your own' : !props.hasLimbs ? 'No limbs' : 'No way to move yourself';
+  return pick([
+    `"${short}" — you will it as hard as a ${what} can. ${limit}; instead a faint vibration runs through you, and somewhere nearby a floorboard creaks in answer.`,
+    `You turn the thought over: "${short}". ${limit}, so you listen. Warmth seeps into you from whatever surface you rest on — someone was here recently.`,
+    `Intent without a body: "${short}". ${limit}. Then — a shadow passes over you, and for a heartbeat you are certain you've been noticed.`,
+    `You push at the world with nothing but will ("${short}"). ${limit}. A breeze shifts the dust on your surface; footsteps approach, pause, and move on.`,
+    `"${short}." Your ${what} body stays exactly where it was left. But your senses sharpen: a smell of oil and candle smoke, a voice two rooms away.`,
+    `${limit} — the reminder is constant. Still, "${short}" stirs something: a low hum of residual enchantment that makes a nearby cat stare straight at you.`,
   ], seed);
 }
