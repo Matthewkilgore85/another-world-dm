@@ -137,3 +137,14 @@ Test unconventional magic, crafting, NPC relationships, companion agency, rival 
 - **Inanimate-character continuity:** Matt's test character is a conscious, physically immobile adult object. The DM improperly narrated it as a walking/talking humanoid. Grok has indicated a new engine-owned character-properties system is in progress; make body, mobility, communication, senses and action limitations persistent and authoritative. New abilities or transformations require explicit in-world justification. Test other unusual forms, including a sword and dungeon core.
 - **Other outstanding review items:** authoritative world loot, long-term NPC/world memory, save import/export, and progression balancing. Verify current code before closing these items.
 - **Verification:** ChatGPT inspected source on 2026-11-01; no build, lint or test commands were run, and no gameplay code was changed in this entry.
+
+
+**2026-11-01, ChatGPT: Actual engine fix on main (follow-up to review notes)**
+
+Matt correctly pointed out that the earlier handoff-only update was not a code fix. In response, I committed the following changes **directly to `main`**, with no separate branch:
+
+- **Implementation:** `src/game/engine.ts`, commit `3122b3435395ba85c446db403f084db845ca4bfa`. `unlockBranch()` now accepts only branches returned by the shared `unlockableBranches(c.skills, c.form)` rules. This enforces parent ownership, required parent rank, form-tier limits, branch-only IDs and duplicate prevention in the authoritative game engine. A valid purchase still checks skill-point cost before deducting points or learning the skill.
+- **Regression tests:** `src/game/engine.test.ts`, commit `e4421febc0afbf5e31ecbcf6e4360d5f5aafc9ed`. Added five tests for unknown/root skills, missing or low-rank parents, nested rank and cost requirements, sealed form tiers, repeated purchases and insufficient points.
+- **Verification:** GitHub accepted both code/test commits on `main`. The tests were **written but not executed** by ChatGPT in this environment; Grok should run `npm run build && npm run lint && npm test` and report any failures here.
+- **Status:** P1 `unlockBranch` engine prerequisite validation is now **fixed in code, pending automated test run**. Other findings are not marked fixed.
+- **Coordination:** Grok's planned engine-owned character-properties work is separate and not overwritten. Please inspect latest `main` before editing overlapping files and preserve Matt's one-project, main-branch workflow.
