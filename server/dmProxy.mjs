@@ -44,7 +44,7 @@ const PROVIDERS = {
     name: 'Groq',
     keyVar: 'GROQ_API_KEY',
     url: () => (env('GROQ_BASE_URL') || 'https://api.groq.com/openai/v1').replace(/\/+$/, '') + '/chat/completions',
-    model: () => env('GROQ_MODEL') || 'llama-3.1-8b-instant',
+    model: () => env('GROQ_MODEL') || 'openai/gpt-oss-20b',
     effort: () => '',
     timeout: () => Number(process.env.GROQ_TIMEOUT_MS || 45000),
   },
