@@ -5,7 +5,7 @@ const PORT = 5299;
 let proc;
 beforeAll(async () => {
   // Empty key + a missing .env path: proxy must report configured:false and refuse chat.
-  proc = spawn(process.execPath, ['server/dmProxy.mjs'], { env: { ...process.env, XAI_API_KEY: '', DM_PROXY_PORT: String(PORT) }, stdio: 'pipe' });
+  proc = spawn(process.execPath, ['server/dmProxy.mjs'], { env: { ...process.env, XAI_API_KEY: '', GROQ_API_KEY: '', DM_PROVIDER: '', DM_PROXY_PORT: String(PORT) }, stdio: 'pipe' });
   await new Promise((ok) => proc.stdout.once('data', ok));
 });
 afterAll(() => proc?.kill());
